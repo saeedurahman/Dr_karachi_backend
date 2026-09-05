@@ -1,0 +1,93 @@
+version: "3.9"
+
+services:
+  # ── PostgreSQL Database ──────────────────────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    container_name: karachi_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: karachi_user
+      POSTGRES_PASSWORD: karachi_pass
+      POSTGRES_DB: karachi_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U karachi_user -d karachi_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ── Isolated Test PostgreSQL (Real DB for Concurrency Tests) ─────────────────
+  test_db:
+    image: postgres:16-alpine
+    container_name: karachi_test_db
+    environment:
+      POSTGRES_USER: karachi_user
+      POSTGRES_PASSWORD: karachi_pass
+      POSTGRES_DB: karachi_test_db
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U karachi_user -d karachi_test_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    profiles:
+      - test
+
+  # ── FastAPI Application (Development Stage) ──────────────────────────────────
+  api:
+    build:
+      context: .
+      target: development
+    container_name: karachi_api
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://karachi_user:karachi_pass@db:5432/karachi_db
+      SYNC_DATABASE_URL: postgresql+psycopg2://karachi_user:karachi_pass@db:5432/karachi_db
+      STORAGE_BACKEND: local
+      LOCAL_UPLOAD_DIR: uploads
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+      - ./uploads:/app/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  # ── Optional Test Runner Service ─────────────────────────────────────────────
+  test_runner:
+    build:
+      context: .
+      target: development
+    container_name: karachi_test_runner
+    environment:
+      TEST_DATABASE_URL: postgresql+asyncpg://karachi_user:karachi_pass@test_db:5432/karachi_test_db
+    depends_on:
+      test_db:
+        condition: service_healthy
+    command: pytest -v
+    profiles:
+      - test
+
+  # ── pgAdmin Database Dashboard ───────────────────────────────────────────────
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: karachi_pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@karachi.local
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    depends_on:
+      - db
+
+volumes:
+  postgres_data:
