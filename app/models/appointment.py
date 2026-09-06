@@ -16,7 +16,7 @@ from sqlalchemy import DateTime, Enum, ForeignKey, Index, Text, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.database import Base
+from app.database_base import Base
 from app.models.base import TimestampMixin
 
 

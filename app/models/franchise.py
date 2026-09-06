@@ -11,7 +11,7 @@ from sqlalchemy import Boolean, Enum, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.database import Base
+from app.database_base import Base
 from app.models.base import TimestampMixin
 
 

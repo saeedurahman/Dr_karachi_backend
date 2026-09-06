@@ -9,7 +9,7 @@ from sqlalchemy import Boolean, ForeignKey, Numeric, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.database import Base
+from app.database_base import Base
 from app.models.base import SoftDeleteMixin
 
 
