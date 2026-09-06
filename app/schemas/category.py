@@ -7,7 +7,6 @@ delivers the full tree for a mega-menu (Medications → sub-categories).
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
 
 from pydantic import BaseModel, Field
 
@@ -66,7 +65,7 @@ class NestedCategoryResponse(BaseModel):
     description: str | None
     image_url: str | None
     sort_order: int
-    children: list["NestedCategoryResponse"] = []
+    children: list[NestedCategoryResponse] = []
 
     model_config = {"from_attributes": False}
 

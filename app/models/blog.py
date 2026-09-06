@@ -1,5 +1,5 @@
 """
-BlogPost model — health articles for the "Top Articles of the Day" section.
+BlogPost model â€” health articles for the "Top Articles of the Day" section.
 
 Partial unique index on slug: uniqueness enforced only WHERE deleted_at IS NULL.
 """
@@ -19,7 +19,7 @@ from app.models.base import SoftDeleteMixin
 class BlogPost(SoftDeleteMixin, Base):
     __tablename__ = "blog_posts"
     __table_args__ = (
-        # Partial unique index — reuse slugs of deleted posts
+        # Partial unique index â€” reuse slugs of deleted posts
         Index(
             "ix_blog_posts_slug_active",
             "slug",
@@ -54,8 +54,8 @@ class BlogPost(SoftDeleteMixin, Base):
     meta_title: Mapped[str | None] = mapped_column(String(255), nullable=True)
     meta_description: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
-    # ── Relationships ──────────────────────────────────────────
-    author: Mapped["User | None"] = relationship(back_populates="blog_posts")  # noqa: F821
+    # â”€â”€ Relationships â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    author: Mapped[User | None] = relationship(back_populates="blog_posts")  # noqa: F821
 
     def __repr__(self) -> str:
         return f"<BlogPost slug={self.slug!r} published={self.is_published}>"

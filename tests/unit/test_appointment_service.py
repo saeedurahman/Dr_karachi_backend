@@ -1,12 +1,11 @@
 """
 Unit tests for appointment service slot generation.
 """
-from datetime import date, time, timedelta, timezone, datetime
-import pytest
 import uuid
+from datetime import UTC, date, datetime, time
 from unittest.mock import AsyncMock, MagicMock
 
-from app.models.appointment import AppointmentStatus
+import pytest
 from app.models.doctor import DayOfWeek, DoctorAvailability
 from app.services.appointment_service import AppointmentService
 
@@ -32,7 +31,7 @@ async def test_slot_generation_intervals():
     mock_avail_res.scalars.return_value.all.return_value = [avail]
 
     # Mock DB returns 1 booked appointment at 09:30
-    booked_slot = datetime(2026, 9, 7, 9, 30, tzinfo=timezone.utc)
+    booked_slot = datetime(2026, 9, 7, 9, 30, tzinfo=UTC)
     mock_booked_res = MagicMock()
     mock_booked_res.all.return_value = [(booked_slot,)]
 

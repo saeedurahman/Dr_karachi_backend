@@ -11,13 +11,11 @@ Key behaviors:
 from __future__ import annotations
 
 import uuid
-from decimal import Decimal
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func, select
-from sqlalchemy.orm import selectinload
 
-from app.dependencies import CurrentUser, DBSession, require_roles
+from app.dependencies import DBSession, require_roles
 from app.models.product import BranchStock, Product
 from app.models.user import UserRole
 from app.schemas.product import (
@@ -27,7 +25,6 @@ from app.schemas.product import (
     ProductUpdate,
 )
 from app.utils.pagination import PagedResponse, PaginationParams, pagination_params
-from fastapi import Depends
 
 router = APIRouter(prefix="/products", tags=["Pharmacy — Products"])
 

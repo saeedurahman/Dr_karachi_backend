@@ -12,7 +12,7 @@ from __future__ import annotations
 import math
 import uuid
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, Query, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
 

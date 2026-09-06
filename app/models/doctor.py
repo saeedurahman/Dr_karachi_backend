@@ -1,8 +1,8 @@
 """
 Doctor models:
-  - Doctor            — profile linked to a User account
-  - DoctorBranch      — many-to-many: which branches a doctor serves
-  - DoctorAvailability— weekly schedule (day + start/end time)
+  - Doctor            â€” profile linked to a User account
+  - DoctorBranch      â€” many-to-many: which branches a doctor serves
+  - DoctorAvailabilityâ€” weekly schedule (day + start/end time)
 """
 from __future__ import annotations
 
@@ -59,15 +59,15 @@ class Doctor(SoftDeleteMixin, Base):
     profile_image_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
-    # ── Relationships ──────────────────────────────────────────
-    user: Mapped["User"] = relationship(back_populates="doctor_profile")  # noqa: F821
-    doctor_branches: Mapped[list["DoctorBranch"]] = relationship(
+    # â”€â”€ Relationships â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    user: Mapped[User] = relationship(back_populates="doctor_profile")  # noqa: F821
+    doctor_branches: Mapped[list[DoctorBranch]] = relationship(
         back_populates="doctor", cascade="all, delete-orphan"
     )
-    availability: Mapped[list["DoctorAvailability"]] = relationship(
+    availability: Mapped[list[DoctorAvailability]] = relationship(
         back_populates="doctor", cascade="all, delete-orphan"
     )
-    appointments: Mapped[list["Appointment"]] = relationship(  # noqa: F821
+    appointments: Mapped[list[Appointment]] = relationship(  # noqa: F821
         back_populates="doctor", foreign_keys="Appointment.doctor_id"
     )
 
@@ -76,7 +76,7 @@ class Doctor(SoftDeleteMixin, Base):
 
 
 class DoctorBranch(TimestampMixin, Base):
-    """Association table: doctor ↔ branch (many-to-many)."""
+    """Association table: doctor â†” branch (many-to-many)."""
 
     __tablename__ = "doctor_branches"
     __table_args__ = (
@@ -100,9 +100,9 @@ class DoctorBranch(TimestampMixin, Base):
     )
     is_primary: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
-    # ── Relationships ──────────────────────────────────────────
-    doctor: Mapped["Doctor"] = relationship(back_populates="doctor_branches")
-    branch: Mapped["Branch"] = relationship(back_populates="doctor_branches")  # noqa: F821
+    # â”€â”€ Relationships â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    doctor: Mapped[Doctor] = relationship(back_populates="doctor_branches")
+    branch: Mapped[Branch] = relationship(back_populates="doctor_branches")  # noqa: F821
 
 
 class DoctorAvailability(TimestampMixin, Base):
@@ -141,6 +141,6 @@ class DoctorAvailability(TimestampMixin, Base):
     end_time: Mapped[time] = mapped_column(Time, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
-    # ── Relationships ──────────────────────────────────────────
-    doctor: Mapped["Doctor"] = relationship(back_populates="availability")
-    branch: Mapped["Branch"] = relationship()  # noqa: F821
+    # â”€â”€ Relationships â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    doctor: Mapped[Doctor] = relationship(back_populates="availability")
+    branch: Mapped[Branch] = relationship()  # noqa: F821

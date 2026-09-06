@@ -48,6 +48,7 @@ async def login(body: LoginRequest, db: DBSession):
     tokens = await svc.login(phone=body.phone, password=body.password)
     # Re-fetch user for response
     from sqlalchemy import select
+
     from app.models.user import User
     result = await db.execute(select(User).where(User.phone == body.phone))
     user = result.scalar_one()
@@ -63,10 +64,12 @@ async def refresh(body: RefreshTokenRequest, db: DBSession):
     svc = AuthService(db)
     tokens = await svc.refresh_tokens(body.refresh_token)
     # Decode new access token to get user_id
-    from app.utils.security import decode_access_token
     import uuid
+
     from sqlalchemy import select
+
     from app.models.user import User
+    from app.utils.security import decode_access_token
     payload = decode_access_token(tokens["access_token"])
     user_result = await db.execute(select(User).where(User.id == uuid.UUID(payload["sub"])))
     user = user_result.scalar_one()

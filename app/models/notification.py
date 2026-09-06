@@ -1,5 +1,5 @@
 """
-NotificationEvent model — internal event-hook stub.
+NotificationEvent model â€” internal event-hook stub.
 
 Services call emit_event() which writes here.
 A future background worker (Celery / FastAPI BackgroundTasks)
@@ -50,7 +50,7 @@ class NotificationEvent(TimestampMixin, Base):
         nullable=True,
         index=True,
     )
-    # Flexible JSON payload — structure varies per event_type
+    # Flexible JSON payload â€” structure varies per event_type
     payload: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
     triggered_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, index=True
@@ -59,12 +59,12 @@ class NotificationEvent(TimestampMixin, Base):
         DateTime(timezone=True), nullable=True
     )
     delivery_channel: Mapped[str | None] = mapped_column(
-        String(50), nullable=True  # "whatsapp", "email", "sms" — extensible
+        String(50), nullable=True  # "whatsapp", "email", "sms" â€” extensible
     )
     delivery_error: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
-    # ── Relationships ──────────────────────────────────────────
-    user: Mapped["User | None"] = relationship(back_populates="notification_events")  # noqa: F821
+    # â”€â”€ Relationships â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    user: Mapped[User | None] = relationship(back_populates="notification_events")  # noqa: F821
 
     @property
     def is_delivered(self) -> bool:

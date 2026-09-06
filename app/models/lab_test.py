@@ -1,5 +1,5 @@
 """
-LabTest model — catalog of tests and packages offered per branch.
+LabTest model â€” catalog of tests and packages offered per branch.
 """
 from __future__ import annotations
 
@@ -37,9 +37,9 @@ class LabTest(SoftDeleteMixin, Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     turnaround_hours: Mapped[int | None] = mapped_column(nullable=True)
 
-    # ── Relationships ──────────────────────────────────────────
-    branch: Mapped["Branch | None"] = relationship(back_populates="lab_tests")  # noqa: F821
-    lab_reports: Mapped[list["LabReport"]] = relationship(  # noqa: F821
+    # â”€â”€ Relationships â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    branch: Mapped[Branch | None] = relationship(back_populates="lab_tests")  # noqa: F821
+    lab_reports: Mapped[list[LabReport]] = relationship(  # noqa: F821
         back_populates="test", foreign_keys="LabReport.test_id"
     )
 

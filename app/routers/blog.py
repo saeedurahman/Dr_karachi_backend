@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import math
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, HTTPException, Query, status
 from sqlalchemy import func, select
@@ -146,6 +146,6 @@ async def delete_blog_post(post_id: uuid.UUID, db: DBSession):
     if not post:
         raise HTTPException(status_code=404, detail="Blog post not found.")
 
-    post.deleted_at = datetime.now(timezone.utc)
+    post.deleted_at = datetime.now(UTC)
     post.is_published = False
     await db.flush()

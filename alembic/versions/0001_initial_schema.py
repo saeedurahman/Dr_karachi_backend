@@ -371,7 +371,7 @@ def upgrade() -> None:
         sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
         sa.Column("event_type", notificationeventtype_enum, nullable=False),
         sa.Column("user_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("users.id", ondelete="SET NULL"), nullable=True),
-        sa.Column("payload", postgresql.JSON(as_uuid=True), nullable=False),
+        sa.Column("payload", postgresql.JSON(), nullable=False),
         sa.Column("triggered_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("delivered_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("delivery_channel", sa.String(50), nullable=True),

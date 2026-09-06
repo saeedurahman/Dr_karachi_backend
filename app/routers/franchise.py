@@ -7,8 +7,6 @@ Endpoints:
   GET  /{id}    → [Admin] Lead detail (marks is_read = True)
   PUT  /{id}    → [Admin] Update lead status (new/contacted/closed), notes, is_read
 """
-from __future__ import annotations
-
 import math
 import uuid
 

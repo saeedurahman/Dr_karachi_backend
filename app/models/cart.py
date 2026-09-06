@@ -36,7 +36,7 @@ class CartItem(TimestampMixin, Base):
         nullable=False,
         index=True,
     )
-    # Branch the patient is ordering from — required for stock validation at checkout.
+    # Branch the patient is ordering from â€” required for stock validation at checkout.
     # Nullable until patient selects a branch.
     branch_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
@@ -46,10 +46,10 @@ class CartItem(TimestampMixin, Base):
     )
     quantity: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
 
-    # ── Relationships ──────────────────────────────────────────
-    user: Mapped["User"] = relationship(back_populates="cart_items")  # noqa: F821
-    product: Mapped["Product"] = relationship(back_populates="cart_items")  # noqa: F821
-    branch: Mapped["Branch | None"] = relationship(back_populates="cart_items")  # noqa: F821
+    # â”€â”€ Relationships â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    user: Mapped[User] = relationship(back_populates="cart_items")  # noqa: F821
+    product: Mapped[Product] = relationship(back_populates="cart_items")  # noqa: F821
+    branch: Mapped[Branch | None] = relationship(back_populates="cart_items")  # noqa: F821
 
     def __repr__(self) -> str:
         return f"<CartItem user={self.user_id} product={self.product_id} qty={self.quantity}>"

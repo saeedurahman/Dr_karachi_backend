@@ -10,15 +10,24 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
-from slowapi.util import get_remote_address
 
 from app.config import settings
-from app.routers import auth, branches, doctors
-from app.routers import categories, products, cart_orders
-from app.routers import lab_tests, appointments, lab_reports
-from app.routers import reviews, blog, franchise
+from app.routers import (
+    appointments,
+    auth,
+    blog,
+    branches,
+    cart_orders,
+    categories,
+    doctors,
+    franchise,
+    lab_reports,
+    lab_tests,
+    products,
+    reviews,
+)
 from app.utils.limiter import limiter
 
 # ── OpenAPI Tags Metadata ──────────────────────────────────────────────────────

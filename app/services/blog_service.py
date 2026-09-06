@@ -5,17 +5,22 @@ view counting, and top featured articles.
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi import HTTPException
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.blog import BlogPost
 from app.models.notification import NotificationEventType
 from app.models.user import User
-from app.schemas.blog import AuthorSummary, BlogPostCreate, BlogPostResponse, BlogPostUpdate
+from app.schemas.blog import (
+    AuthorSummary,
+    BlogPostCreate,
+    BlogPostResponse,
+    BlogPostUpdate,
+)
 from app.services.notification_service import emit_event
 from app.utils.slug import slugify
 
@@ -59,7 +64,7 @@ class BlogService:
             if existing.scalar_one_or_none():
                 raise HTTPException(status_code=409, detail=f"Slug '{slug}' is already in use.")
 
-        published_at = datetime.now(timezone.utc) if body.is_published else None
+        published_at = datetime.now(UTC) if body.is_published else None
 
         post = BlogPost(
             title=body.title,
@@ -104,7 +109,7 @@ class BlogService:
         data = body.model_dump(exclude_unset=True)
 
         # Handle slug update
-        if "slug" in data and data["slug"]:
+        if data.get("slug"):
             new_slug = data["slug"].strip()
             if new_slug != post.slug:
                 conflict = await self.db.execute(
@@ -123,7 +128,7 @@ class BlogService:
         # Transitioning to published
         was_published = post.is_published
         if data.get("is_published") and not was_published:
-            post.published_at = datetime.now(timezone.utc)
+            post.published_at = datetime.now(UTC)
             await emit_event(
                 db=self.db,
                 event_type=NotificationEventType.blog_published,

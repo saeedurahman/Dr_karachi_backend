@@ -11,16 +11,20 @@ Critical behaviors:
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
 from decimal import Decimal
 
-from fastapi import HTTPException, status
+from fastapi import HTTPException
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.cart import CartItem
 from app.models.notification import NotificationEventType
-from app.models.order import Order, OrderItem, OrderStatus, PaymentMethod, VALID_STATUS_TRANSITIONS
+from app.models.order import (
+    VALID_STATUS_TRANSITIONS,
+    Order,
+    OrderItem,
+    OrderStatus,
+)
 from app.models.product import BranchStock, Product
 from app.models.user import User
 from app.schemas.cart_order import (
@@ -148,7 +152,10 @@ class CheckoutService:
                 CartItem.branch_id == branch_id,
             )
         )
-        await self.db.flush()
+        # Commit so FOR UPDATE locks are held until stock decrement is durable.
+        # Without this, concurrent sessions see the pre-decrement stock after rollback
+        # on session close and both checkouts can succeed (oversell).
+        await self.db.commit()
 
         return self._build_response(order, order_item_models)
 
