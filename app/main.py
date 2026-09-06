@@ -51,9 +51,10 @@ TAGS_METADATA = [
 # ── Lifespan (startup / shutdown) ─────────────────────────────────────────────
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: ensure upload directory exists for local storage
-    from pathlib import Path
-    Path(settings.LOCAL_UPLOAD_DIR).mkdir(parents=True, exist_ok=True)
+    # Only touch local disk when using local storage (R2/S3 needs no uploads dir).
+    if settings.STORAGE_BACKEND == "local":
+        from pathlib import Path
+        Path(settings.LOCAL_UPLOAD_DIR).mkdir(parents=True, exist_ok=True)
     yield
     # Shutdown: nothing to clean up currently
 

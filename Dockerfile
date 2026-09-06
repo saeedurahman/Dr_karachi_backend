@@ -52,6 +52,9 @@ RUN pip install --no-cache-dir /wheels/* && rm -rf /wheels
 
 COPY --chown=appuser:appuser . .
 
+# Pre-create uploads for local-storage fallback (appuser cannot mkdir at runtime)
+RUN mkdir -p /app/uploads && chown -R appuser:appuser /app/uploads
+
 USER appuser
 
 EXPOSE 8000
