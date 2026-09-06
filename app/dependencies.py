@@ -65,11 +65,9 @@ def require_roles(*roles: UserRole):
     """
     RBAC dependency factory.
 
-    Usage:
-        @router.get("/admin/only")
-        async def admin_route(
-            _: User = Depends(require_roles(UserRole.super_admin, UserRole.branch_manager))
-        ):
+    Usage (route-level):
+        @router.get("/admin/only", dependencies=[require_roles(UserRole.super_admin)])
+        async def admin_route(...):
             ...
     """
     def checker(current_user: CurrentUser) -> User:
@@ -79,4 +77,4 @@ def require_roles(*roles: UserRole):
                 detail=f"Access restricted. Required roles: {[r.value for r in roles]}",
             )
         return current_user
-    return checker
+    return Depends(checker)

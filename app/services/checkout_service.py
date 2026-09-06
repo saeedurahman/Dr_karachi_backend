@@ -152,7 +152,10 @@ class CheckoutService:
                 CartItem.branch_id == branch_id,
             )
         )
-        await self.db.flush()
+        # Commit so FOR UPDATE locks are held until stock decrement is durable.
+        # Without this, concurrent sessions see the pre-decrement stock after rollback
+        # on session close and both checkouts can succeed (oversell).
+        await self.db.commit()
 
         return self._build_response(order, order_item_models)
 

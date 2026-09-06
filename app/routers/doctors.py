@@ -11,7 +11,7 @@ from sqlalchemy import select
 from app.config import settings
 from app.dependencies import CurrentUser, DBSession, require_roles
 from app.models.appointment import Appointment, AppointmentStatus
-from app.models.doctor import Doctor, DoctorAvailability, DoctorBranch
+from app.models.doctor import DayOfWeek, Doctor, DoctorAvailability, DoctorBranch
 from app.models.user import UserRole
 from app.schemas.doctor import (
     AvailabilityCreate,
@@ -78,7 +78,7 @@ async def get_doctor_slots(
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD.")
 
-    day_of_week = target_date.weekday()
+    day_of_week = DayOfWeek(target_date.weekday())
 
     # Fetch availability windows for this doctor+branch+day
     avail_result = await db.execute(

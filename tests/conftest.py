@@ -8,20 +8,20 @@ PostgreSQL Requirement:
 """
 from __future__ import annotations
 
-import asyncio
 import os
 import uuid
 from collections.abc import AsyncGenerator
 
-import pytest
 import pytest_asyncio
+from httpx import ASGITransport, AsyncClient
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.pool import NullPool
+
 from app.database import Base, get_db
 from app.main import create_app
 from app.models.user import User, UserRole
 from app.utils.security import create_access_token, hash_password
-from httpx import ASGITransport, AsyncClient
-from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 # Default test database URL (configurable via TEST_DATABASE_URL env var)
 TEST_DB_URL = os.getenv(
@@ -29,15 +29,9 @@ TEST_DB_URL = os.getenv(
     "postgresql+asyncpg://karachi_user:karachi_pass@localhost:5432/karachi_test_db",
 )
 
-test_engine = create_async_engine(TEST_DB_URL, echo=False, pool_pre_ping=True)
+# NullPool avoids cross-event-loop connection reuse under pytest-asyncio
+test_engine = create_async_engine(TEST_DB_URL, echo=False, poolclass=NullPool)
 TestSessionLocal = async_sessionmaker(test_engine, expire_on_commit=False)
-
-
-@pytest.fixture(scope="session")
-def event_loop():
-    loop = asyncio.new_event_loop()
-    yield loop
-    loop.close()
 
 
 @pytest_asyncio.fixture(scope="session")
@@ -50,7 +44,10 @@ async def setup_test_db():
         yield
         async with test_engine.begin() as conn:
             await conn.run_sync(Base.metadata.drop_all)
+        await test_engine.dispose()
     except (OSError, SQLAlchemyError) as e:
+        import pytest
+
         pytest.skip(f"PostgreSQL test database not accessible at {TEST_DB_URL}: {e}")
 
 
@@ -68,7 +65,12 @@ async def async_client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, 
     app = create_app()
 
     async def _override_get_db():
-        yield db_session
+        try:
+            yield db_session
+            await db_session.commit()
+        except Exception:
+            await db_session.rollback()
+            raise
 
     app.dependency_overrides[get_db] = _override_get_db
 
@@ -88,22 +90,21 @@ async def create_user_helper(
     user_id = uuid.uuid4()
     unique_suffix = str(uuid.uuid4().hex[:6])
     phone_val = phone or f"+92300{unique_suffix}"
-    email_val = email or f"user_{unique_suffix}@karachi.local"
+    email_val = email or f"user_{unique_suffix}@example.com"
 
     user = User(
         id=user_id,
         full_name=f"Test User {role.value}",
         phone=phone_val,
         email=email_val,
-        password_hash=hash_password("Password123!"),
+        hashed_password=hash_password("Password123!"),
         role=role,
         is_active=True,
-        is_verified=True,
     )
     session.add(user)
     await session.commit()
     await session.refresh(user)
 
-    token = create_access_token(user_id=user.id, role=user.role.value)
+    token, _ = create_access_token(str(user.id), user.role.value)
     headers = {"Authorization": f"Bearer {token}"}
     return user, headers

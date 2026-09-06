@@ -15,13 +15,14 @@ from datetime import UTC, date, datetime, time, timedelta
 
 from fastapi import HTTPException, status
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.config import settings
 from app.models.appointment import Appointment, AppointmentStatus
 from app.models.branch import Branch
-from app.models.doctor import Doctor, DoctorAvailability
+from app.models.doctor import DayOfWeek, Doctor, DoctorAvailability
 from app.models.notification import NotificationEventType
 from app.models.user import User, UserRole
 from app.schemas.appointment import (
@@ -50,7 +51,7 @@ class AppointmentService:
         Generate 30-min slots for a doctor on a given date at a specific branch.
         Availability is strictly filtered by BOTH doctor_id AND branch_id.
         """
-        day_of_week = target_date.weekday()
+        day_of_week = DayOfWeek(target_date.weekday())
 
         # 1. Fetch doctor availability windows strictly for this doctor AND this branch
         avail_result = await self.db.execute(
@@ -119,16 +120,23 @@ class AppointmentService:
         if slot_dt.tzinfo is None:
             slot_dt = slot_dt.replace(tzinfo=UTC)
 
-        # 1. Acquire row-level lock on the Doctor
+        # 1. Acquire row-level lock on the Doctor (serialize concurrent bookings)
         doc_result = await self.db.execute(
             select(Doctor)
             .where(Doctor.id == body.doctor_id, Doctor.deleted_at.is_(None))
-            .options(selectinload(Doctor.user))
             .with_for_update()
         )
         doctor = doc_result.scalar_one_or_none()
         if not doctor or not doctor.is_active:
             raise HTTPException(status_code=404, detail="Doctor not found or inactive.")
+
+        # Load related user after lock (avoid FOR UPDATE + selectinload interaction)
+        user_result = await self.db.execute(
+            select(Doctor)
+            .where(Doctor.id == doctor.id)
+            .options(selectinload(Doctor.user))
+        )
+        doctor = user_result.scalar_one()
 
         # 2. Verify branch exists
         branch_result = await self.db.execute(
@@ -143,12 +151,13 @@ class AppointmentService:
         target_time = slot_dt.time()
         slot_duration = timedelta(minutes=settings.APPOINTMENT_SLOT_DURATION_MINUTES)
         slot_end_time = (slot_dt + slot_duration).time()
+        day_of_week = DayOfWeek(target_date.weekday())
 
         avail_result = await self.db.execute(
             select(DoctorAvailability).where(
                 DoctorAvailability.doctor_id == body.doctor_id,
                 DoctorAvailability.branch_id == body.branch_id,
-                DoctorAvailability.day_of_week == target_date.weekday(),
+                DoctorAvailability.day_of_week == day_of_week,
                 DoctorAvailability.start_time <= target_time,
                 DoctorAvailability.end_time >= slot_end_time,
                 DoctorAvailability.is_active.is_(True),
@@ -191,7 +200,15 @@ class AppointmentService:
             notes=body.notes,
         )
         self.db.add(appointment)
-        await self.db.flush()
+        try:
+            await self.db.flush()
+        except IntegrityError:
+            # Partial unique index uq_active_doctor_slot lost the race
+            await self.db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="This slot has already been booked. Please select a different slot.",
+            ) from None
 
         # 6. Emit event
         await emit_event(
@@ -207,6 +224,9 @@ class AppointmentService:
             user_id=patient.id,
             delivery_channel="whatsapp",
         )
+
+        # Commit so the doctor/slot locks are held until the booking is durable.
+        await self.db.commit()
 
         return self._build_response(appointment, doctor, branch)
 

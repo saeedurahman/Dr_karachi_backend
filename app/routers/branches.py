@@ -55,7 +55,7 @@ async def get_branch(branch_id: uuid.UUID, db: DBSession):
 
 
 @router.post(
-    "/",
+    "",
     response_model=BranchResponse,
     status_code=status.HTTP_201_CREATED,
     summary="[Admin] Create a new branch",
