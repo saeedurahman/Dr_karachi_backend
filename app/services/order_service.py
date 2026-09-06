@@ -66,12 +66,12 @@ def calculate_order_total(
     Returns:
         OrderTotals — frozen dataclass, all values Decimal.
     """
-    original_subtotal = Decimal("0")
-    discounted_subtotal = Decimal("0")
+    original_subtotal = Decimal(0)
+    discounted_subtotal = Decimal(0)
 
     for item in items:
         line_original = _two_places(item.price * item.quantity)
-        discount_factor = (Decimal("100") - item.discount_percent) / Decimal("100")
+        discount_factor = (Decimal(100) - item.discount_percent) / Decimal(100)
         line_discounted = _two_places(item.price * discount_factor * item.quantity)
 
         original_subtotal += line_original
@@ -83,7 +83,7 @@ def calculate_order_total(
     delivery_charges = (
         _two_places(settings.DELIVERY_FEE)
         if delivery_method == "delivery"
-        else Decimal("0")
+        else Decimal(0)
     )
 
     grand_total = _two_places(discounted_subtotal + platform_fee + delivery_charges)

@@ -60,7 +60,7 @@ class LabReport(TimestampMixin, Base):
         index=True,
     )
 
-    # Internal private storage path (e.g. reports/{patient_id}/{uuid}.pdf) — signed URL generated on demand
+    # Internal private storage path (e.g. reports/{patient_id}/{uuid}.pdf) â€” signed URL generated on demand
     file_path: Mapped[str] = mapped_column(String(1000), nullable=False)
     file_type: Mapped[ReportFileType] = mapped_column(
         Enum(ReportFileType, name="reportfiletype"), nullable=False
@@ -68,7 +68,7 @@ class LabReport(TimestampMixin, Base):
     file_name: Mapped[str] = mapped_column(String(500), nullable=False)
     is_visible: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
-    # Staff who uploaded — stored as UUID; nullable if auto-generated
+    # Staff who uploaded â€” stored as UUID; nullable if auto-generated
     uploaded_by: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("users.id", ondelete="SET NULL"),
@@ -76,14 +76,14 @@ class LabReport(TimestampMixin, Base):
     )
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    # ── Relationships ──────────────────────────────────────────
-    patient: Mapped["User"] = relationship(  # noqa: F821
+    # â”€â”€ Relationships â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    patient: Mapped[User] = relationship(  # noqa: F821
         back_populates="lab_reports", foreign_keys=[patient_id]
     )
-    test: Mapped["LabTest | None"] = relationship(  # noqa: F821
+    test: Mapped[LabTest | None] = relationship(  # noqa: F821
         back_populates="lab_reports", foreign_keys=[test_id]
     )
-    appointment: Mapped["Appointment | None"] = relationship(  # noqa: F821
+    appointment: Mapped[Appointment | None] = relationship(  # noqa: F821
         back_populates="lab_reports", foreign_keys=[appointment_id]
     )
 

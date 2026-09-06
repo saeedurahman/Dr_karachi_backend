@@ -1,9 +1,9 @@
 """
-Category model — self-referencing tree for product categories.
+Category model â€” self-referencing tree for product categories.
 
 Supports:
   - Top-level categories (parent_id = NULL)
-  - Sub-categories (parent_id = FK → categories.id)
+  - Sub-categories (parent_id = FK â†’ categories.id)
 
 Partial unique index on slug ensures uniqueness only among
 non-deleted categories, so soft-deleted slugs can be reused.
@@ -49,14 +49,14 @@ class Category(SoftDeleteMixin, Base):
         index=True,
     )
 
-    # ── Relationships ──────────────────────────────────────────
-    parent: Mapped["Category | None"] = relationship(
+    # â”€â”€ Relationships â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    parent: Mapped[Category | None] = relationship(
         "Category", remote_side="Category.id", back_populates="children"
     )
-    children: Mapped[list["Category"]] = relationship(
+    children: Mapped[list[Category]] = relationship(
         "Category", back_populates="parent"
     )
-    products: Mapped[list["Product"]] = relationship(  # noqa: F821
+    products: Mapped[list[Product]] = relationship(  # noqa: F821
         back_populates="category"
     )
 

@@ -1,5 +1,5 @@
 """
-Review model — ratings on doctors or services.
+Review model â€” ratings on doctors or services.
 target_type determines what target_id references (polymorphic association).
 is_approved allows admin moderation before reviews go public.
 """
@@ -8,7 +8,15 @@ from __future__ import annotations
 import enum
 import uuid
 
-from sqlalchemy import Boolean, CheckConstraint, Enum, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    Enum,
+    ForeignKey,
+    Integer,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -45,8 +53,8 @@ class Review(TimestampMixin, Base):
     comment: Mapped[str | None] = mapped_column(Text, nullable=True)
     is_approved: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, index=True)
 
-    # ── Relationships ──────────────────────────────────────────
-    author: Mapped["User"] = relationship(back_populates="reviews")  # noqa: F821
+    # â”€â”€ Relationships â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    author: Mapped[User] = relationship(back_populates="reviews")  # noqa: F821
 
     def __repr__(self) -> str:
         return f"<Review target={self.target_type}:{self.target_id} rating={self.rating}>"

@@ -2,10 +2,9 @@
 Integration tests for Auth flow and RBAC authorization guards.
 """
 import pytest
+from app.models.user import UserRole
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
-
-from app.models.user import UserRole
 from tests.conftest import create_user_helper
 
 
@@ -18,12 +17,15 @@ async def test_auth_registration_and_login_flow(async_client: AsyncClient, db_se
     reg_payload = {
         "phone": phone,
         "full_name": "Hamza Ali",
-        "email": "hamza@karachi.local",
+        "email": "hamza@example.com",
         "password": password,
     }
     reg_resp = await async_client.post("/api/v1/auth/register", json=reg_payload)
     assert reg_resp.status_code == 201, reg_resp.text
-    user_data = reg_resp.json()
+    body = reg_resp.json()
+    assert "access_token" in body
+    assert "refresh_token" in body
+    user_data = body["user"]
     assert user_data["phone"] == phone
     assert user_data["full_name"] == "Hamza Ali"
 
@@ -65,9 +67,9 @@ async def test_rbac_guard_patient_cannot_create_branch(async_client: AsyncClient
         "name": "Clifton Medical Center",
         "city": "Karachi",
         "address": "Block 5, Clifton",
-        "contact_number": "+922131234567",
-        "working_hours": "08:00 - 22:00",
-        "services_offered": "Lab, Pharmacy, Clinics",
+        "phone": "+922131234567",
+        "working_hours": {"mon": {"open": "08:00", "close": "22:00"}},
+        "services": ["lab", "pharmacy", "clinics"],
     }
     resp = await async_client.post("/api/v1/branches", json=branch_payload, headers=patient_headers)
     assert resp.status_code == 403, f"Expected 403 Forbidden but got {resp.status_code}"
@@ -82,9 +84,9 @@ async def test_rbac_guard_admin_can_create_branch(async_client: AsyncClient, db_
         "name": "Gulshan Diagnostic Center",
         "city": "Karachi",
         "address": "Block 13, Gulshan-e-Iqbal",
-        "contact_number": "+922139876543",
-        "working_hours": "24/7",
-        "services_offered": "Lab, Pharmacy",
+        "phone": "+922139876543",
+        "working_hours": {"mon": {"open": "00:00", "close": "23:59"}},
+        "services": ["lab", "pharmacy"],
     }
     resp = await async_client.post("/api/v1/branches", json=branch_payload, headers=admin_headers)
     assert resp.status_code == 201

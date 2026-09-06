@@ -6,14 +6,10 @@ Use Model.query_active() or filter manually: WHERE deleted_at IS NULL.
 """
 from __future__ import annotations
 
-import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import DateTime, func
-from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
-
-from app.database_base import Base
 
 
 class TimestampMixin:
@@ -54,7 +50,7 @@ class SoftDeleteMixin(TimestampMixin):
         return self.deleted_at is not None
 
     def soft_delete(self) -> None:
-        self.deleted_at = datetime.now(timezone.utc)
+        self.deleted_at = datetime.now(UTC)
 
     def restore(self) -> None:
         self.deleted_at = None

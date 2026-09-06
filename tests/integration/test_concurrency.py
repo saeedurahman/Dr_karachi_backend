@@ -9,14 +9,11 @@ for these tests because SQLite ignores FOR UPDATE locks.
 from __future__ import annotations
 
 import asyncio
-from datetime import date, datetime, time, timedelta, timezone
-from decimal import Decimal
 import uuid
+from datetime import UTC, datetime, time
+from decimal import Decimal
 
 import pytest
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from app.models.appointment import Appointment, AppointmentStatus
 from app.models.branch import Branch
 from app.models.cart import CartItem
@@ -25,9 +22,10 @@ from app.models.doctor import DayOfWeek, Doctor, DoctorAvailability
 from app.models.product import BranchStock, Product
 from app.models.user import User, UserRole
 from app.schemas.appointment import AppointmentCreate
-from app.schemas.cart_order import CheckoutRequest, DeliveryMethod, PaymentMethod
+from app.schemas.cart_order import CheckoutRequest, PaymentMethod
 from app.services.appointment_service import AppointmentService
 from app.services.checkout_service import CheckoutService
+from sqlalchemy import select
 from tests.conftest import TestSessionLocal, create_user_helper
 
 
@@ -48,9 +46,9 @@ async def test_concurrent_checkout_stock_oversell_prevention(setup_test_db):
             name="North Nazimabad Branch",
             city="Karachi",
             address="Block H",
-            contact_number="+923000000001",
-            working_hours="24/7",
-            services_offered="Pharmacy",
+            phone="+923000000001",
+            working_hours={"mon": {"open": "00:00", "close": "23:59"}},
+            services=["pharmacy"],
             is_active=True,
         )
         session.add(branch)
@@ -91,7 +89,7 @@ async def test_concurrent_checkout_stock_oversell_prevention(setup_test_db):
     # 6. Execute two simultaneous checkouts using separate database sessions
     checkout_payload = CheckoutRequest(
         payment_method=PaymentMethod.cod,
-        delivery_method=DeliveryMethod.standard,
+        delivery_method="delivery",
         delivery_address="123 Test Street, Karachi",
     )
 
@@ -141,7 +139,7 @@ async def test_concurrent_appointment_booking_conflict_prevention(setup_test_db)
       3. The competing booking raises HTTP 409 Conflict.
       4. Database has exactly one active appointment for that slot.
     """
-    target_slot = datetime(2026, 9, 7, 10, 0, tzinfo=timezone.utc)  # Monday 10:00 AM
+    target_slot = datetime(2026, 9, 7, 10, 0, tzinfo=UTC)  # Monday 10:00 AM
 
     async with TestSessionLocal() as session:
         # Setup Branch
@@ -150,9 +148,9 @@ async def test_concurrent_appointment_booking_conflict_prevention(setup_test_db)
             name="DHA Phase 6 Clinic",
             city="Karachi",
             address="Khayaban-e-Shahbaz",
-            contact_number="+923000000002",
-            working_hours="09:00 - 21:00",
-            services_offered="Clinics",
+            phone="+923000000002",
+            working_hours={"mon": {"open": "09:00", "close": "21:00"}},
+            services=["clinics"],
             is_active=True,
         )
         session.add(branch)

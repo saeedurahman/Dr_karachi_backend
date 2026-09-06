@@ -1,0 +1,24 @@
+[tool.ruff]
+target-version = "py312"
+src = ["app", "tests"]
+
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI dependency/injection defaults are intentional module-level callables.
+extend-immutable-calls = [
+    "fastapi.Depends",
+    "fastapi.Query",
+    "fastapi.Path",
+    "fastapi.Body",
+    "fastapi.Header",
+    "fastapi.Cookie",
+    "fastapi.File",
+    "fastapi.Form",
+    "Depends",
+    "Query",
+    "Path",
+    "Body",
+    "Header",
+    "Cookie",
+    "File",
+    "Form",
+]

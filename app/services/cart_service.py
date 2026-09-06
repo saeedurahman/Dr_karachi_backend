@@ -15,7 +15,7 @@ from __future__ import annotations
 import uuid
 from decimal import Decimal
 
-from fastapi import HTTPException, status
+from fastapi import HTTPException
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -24,7 +24,6 @@ from app.models.product import BranchStock, Product
 from app.schemas.cart_order import (
     CartItemResponse,
     CartResponse,
-    BranchSwitchWarning,
 )
 from app.services.order_service import CartLineItem, calculate_order_total
 
@@ -54,11 +53,11 @@ class CartService:
                 branch_id=None,
                 items=[],
                 item_count=0,
-                subtotal=Decimal("0"),
-                discount_amount=Decimal("0"),
-                platform_fee=Decimal("0"),
-                delivery_charges=Decimal("0"),
-                grand_total=Decimal("0"),
+                subtotal=Decimal(0),
+                discount_amount=Decimal(0),
+                platform_fee=Decimal(0),
+                delivery_charges=Decimal(0),
+                grand_total=Decimal(0),
             )
 
         branch_id = cart_items[0].branch_id

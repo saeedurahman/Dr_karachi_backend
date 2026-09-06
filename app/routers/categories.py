@@ -15,7 +15,6 @@ import uuid
 from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import select
 
-from app.database import Base
 from app.dependencies import DBSession, require_roles
 from app.models.category import Category
 from app.models.user import UserRole

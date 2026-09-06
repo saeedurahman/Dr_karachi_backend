@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import math
 import uuid
-from datetime import date, datetime
+from datetime import date
 
 from fastapi import APIRouter, HTTPException, Query, status
 from sqlalchemy import func, select
@@ -46,7 +46,7 @@ async def get_doctor_slots(
     db: DBSession = None,
 ):
     try:
-        target_date = datetime.strptime(slot_date, "%Y-%m-%d").date()
+        target_date = date.fromisoformat(slot_date)
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD.")
 

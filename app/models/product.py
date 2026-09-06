@@ -2,7 +2,7 @@
 Product & BranchStock models.
 
 KEY DECISION: Stock is tracked per-branch in `branch_stock` table.
-`products` table has NO `stock` column — BranchStock is the sole source of truth.
+`products` table has NO `stock` column â€” BranchStock is the sole source of truth.
 
 Partial unique index on `sku` ensures uniqueness only among active (non-deleted) products.
 """
@@ -10,7 +10,15 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import Boolean, ForeignKey, Index, Numeric, String, Text, UniqueConstraint
+from sqlalchemy import (
+    Boolean,
+    ForeignKey,
+    Index,
+    Numeric,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -51,13 +59,13 @@ class Product(SoftDeleteMixin, Base):
     requires_prescription: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
-    # ── Relationships ──────────────────────────────────────────
-    category: Mapped["Category"] = relationship(back_populates="products")  # noqa: F821
-    branch_stock: Mapped[list["BranchStock"]] = relationship(
+    # â”€â”€ Relationships â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    category: Mapped[Category] = relationship(back_populates="products")  # noqa: F821
+    branch_stock: Mapped[list[BranchStock]] = relationship(
         back_populates="product", cascade="all, delete-orphan"
     )
-    cart_items: Mapped[list["CartItem"]] = relationship(back_populates="product")  # noqa: F821
-    order_items: Mapped[list["OrderItem"]] = relationship(back_populates="product")  # noqa: F821
+    cart_items: Mapped[list[CartItem]] = relationship(back_populates="product")  # noqa: F821
+    order_items: Mapped[list[OrderItem]] = relationship(back_populates="product")  # noqa: F821
 
     @property
     def discounted_price(self) -> float:
@@ -70,7 +78,7 @@ class Product(SoftDeleteMixin, Base):
 class BranchStock(TimestampMixin, Base):
     """
     Branch-wise stock level for a product.
-    This is the SOLE source of truth for inventory — no stock column on Product.
+    This is the SOLE source of truth for inventory â€” no stock column on Product.
     """
 
     __tablename__ = "branch_stock"
@@ -95,6 +103,6 @@ class BranchStock(TimestampMixin, Base):
     )
     stock: Mapped[int] = mapped_column(nullable=False, default=0)
 
-    # ── Relationships ──────────────────────────────────────────
-    product: Mapped["Product"] = relationship(back_populates="branch_stock")
-    branch: Mapped["Branch"] = relationship(back_populates="branch_stock")  # noqa: F821
+    # â”€â”€ Relationships â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    product: Mapped[Product] = relationship(back_populates="branch_stock")
+    branch: Mapped[Branch] = relationship(back_populates="branch_stock")  # noqa: F821
