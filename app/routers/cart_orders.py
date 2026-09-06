@@ -86,7 +86,7 @@ async def add_cart_item(body: CartItemAdd, current_user: CurrentUser, db: DBSess
             detail=BranchSwitchWarning(
                 current_branch_id=e.current,
                 requested_branch_id=e.requested,
-            ).model_dump(),
+            ).model_dump(mode="json"),
         )
     return await svc.get_cart(current_user.id)
 
