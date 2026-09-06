@@ -58,6 +58,17 @@ def do_run_migrations(connection: Connection) -> None:
         context.run_migrations()
 
 
+def run_sync_migrations() -> None:
+    from sqlalchemy import create_engine
+    connectable = create_engine(
+        settings.SYNC_DATABASE_URL,
+        poolclass=pool.NullPool,
+    )
+    with connectable.connect() as connection:
+        do_run_migrations(connection)
+    connectable.dispose()
+
+
 async def run_async_migrations() -> None:
     connectable = async_engine_from_config(
         {"sqlalchemy.url": settings.DATABASE_URL},
@@ -70,10 +81,14 @@ async def run_async_migrations() -> None:
 
 
 def run_migrations_online() -> None:
-    asyncio.run(run_async_migrations())
+    if settings.SYNC_DATABASE_URL:
+        run_sync_migrations()
+    else:
+        asyncio.run(run_async_migrations())
 
 
 if context.is_offline_mode():
     run_migrations_offline()
 else:
     run_migrations_online()
+
