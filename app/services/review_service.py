@@ -13,10 +13,10 @@ Key invariants:
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
-from fastapi import HTTPException, status
-from sqlalchemy import func, or_, select
+from fastapi import HTTPException
+from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -69,7 +69,7 @@ class ReviewService:
         # Validate target
         await self.validate_target_exists(body.target_type, body.target_id)
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         # Atomic PostgreSQL ON CONFLICT DO UPDATE
         stmt = (

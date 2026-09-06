@@ -8,7 +8,15 @@ from __future__ import annotations
 import enum
 import uuid
 
-from sqlalchemy import Boolean, CheckConstraint, Enum, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    Enum,
+    ForeignKey,
+    Integer,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -46,7 +54,7 @@ class Review(TimestampMixin, Base):
     is_approved: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, index=True)
 
     # ── Relationships ──────────────────────────────────────────
-    author: Mapped["User"] = relationship(back_populates="reviews")  # noqa: F821
+    author: Mapped[User] = relationship(back_populates="reviews")  # noqa: F821
 
     def __repr__(self) -> str:
         return f"<Review target={self.target_type}:{self.target_id} rating={self.rating}>"

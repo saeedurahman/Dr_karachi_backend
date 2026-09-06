@@ -64,7 +64,7 @@ class NotificationEvent(TimestampMixin, Base):
     delivery_error: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
     # ── Relationships ──────────────────────────────────────────
-    user: Mapped["User | None"] = relationship(back_populates="notification_events")  # noqa: F821
+    user: Mapped[User | None] = relationship(back_populates="notification_events")  # noqa: F821
 
     @property
     def is_delivered(self) -> bool:

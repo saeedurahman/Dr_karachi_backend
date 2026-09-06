@@ -74,14 +74,14 @@ class Appointment(TimestampMixin, Base):
     cancellation_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # ── Relationships ──────────────────────────────────────────
-    patient: Mapped["User"] = relationship(  # noqa: F821
+    patient: Mapped[User] = relationship(  # noqa: F821
         back_populates="appointments", foreign_keys=[patient_id]
     )
-    doctor: Mapped["Doctor"] = relationship(  # noqa: F821
+    doctor: Mapped[Doctor] = relationship(  # noqa: F821
         back_populates="appointments", foreign_keys=[doctor_id]
     )
-    branch: Mapped["Branch"] = relationship(back_populates="appointments")  # noqa: F821
-    lab_reports: Mapped[list["LabReport"]] = relationship(  # noqa: F821
+    branch: Mapped[Branch] = relationship(back_populates="appointments")  # noqa: F821
+    lab_reports: Mapped[list[LabReport]] = relationship(  # noqa: F821
         back_populates="appointment", foreign_keys="LabReport.appointment_id"
     )
 

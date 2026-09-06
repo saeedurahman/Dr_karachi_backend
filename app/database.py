@@ -33,7 +33,6 @@ AsyncSessionLocal = async_sessionmaker(
 # ── Declarative base ───────────────────────────────────────────────────────────
 class Base(DeclarativeBase):
     """Shared declarative base — all ORM models inherit from this."""
-    pass
 
 
 # ── Dependency ─────────────────────────────────────────────────────────────────

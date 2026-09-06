@@ -4,8 +4,8 @@ Pydantic schemas for Cart and Order endpoints.
 from __future__ import annotations
 
 import uuid
-from decimal import Decimal
 from datetime import datetime
+from decimal import Decimal
 
 from pydantic import BaseModel, Field
 

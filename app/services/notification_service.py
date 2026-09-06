@@ -6,12 +6,12 @@ A future delivery worker will process undelivered rows.
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
+import uuid as _uuid
+from datetime import UTC, datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.notification import NotificationEvent, NotificationEventType
-import uuid as _uuid
 
 
 async def emit_event(
@@ -39,7 +39,7 @@ async def emit_event(
         event_type=event_type,
         user_id=user_id,
         payload=payload,
-        triggered_at=datetime.now(timezone.utc),
+        triggered_at=datetime.now(UTC),
         delivery_channel=delivery_channel,
     )
     db.add(event)

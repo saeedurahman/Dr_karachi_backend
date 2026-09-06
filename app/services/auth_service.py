@@ -9,13 +9,13 @@ Handles:
 """
 from __future__ import annotations
 
-import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.models.refresh_token import RefreshToken
 from app.models.user import User, UserRole
 from app.utils.security import (
@@ -25,7 +25,6 @@ from app.utils.security import (
     hash_refresh_token,
     verify_password,
 )
-from app.config import settings
 
 
 class AuthService:
@@ -113,7 +112,7 @@ class AuthService:
             )
 
         # Rotate: revoke old token, issue new pair
-        stored.revoked_at = datetime.now(timezone.utc)
+        stored.revoked_at = datetime.now(UTC)
         await self.db.flush()
 
         user_result = await self.db.execute(
@@ -134,7 +133,7 @@ class AuthService:
         )
         stored = result.scalar_one_or_none()
         if stored and not stored.is_revoked:
-            stored.revoked_at = datetime.now(timezone.utc)
+            stored.revoked_at = datetime.now(UTC)
 
     # ── Admin: create staff / doctor user ─────────────────────────────────────
     async def create_staff_user(
@@ -156,7 +155,7 @@ class AuthService:
     async def _issue_token_pair(self, user: User) -> dict:
         access_token, _ = create_access_token(str(user.id), user.role.value)
         raw_refresh, token_hash = generate_refresh_token()
-        expires_at = datetime.now(timezone.utc) + timedelta(
+        expires_at = datetime.now(UTC) + timedelta(
             days=settings.REFRESH_TOKEN_EXPIRE_DAYS
         )
         refresh_record = RefreshToken(

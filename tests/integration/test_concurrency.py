@@ -9,14 +9,11 @@ for these tests because SQLite ignores FOR UPDATE locks.
 from __future__ import annotations
 
 import asyncio
-from datetime import date, datetime, time, timedelta, timezone
-from decimal import Decimal
 import uuid
+from datetime import UTC, datetime, time
+from decimal import Decimal
 
 import pytest
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from app.models.appointment import Appointment, AppointmentStatus
 from app.models.branch import Branch
 from app.models.cart import CartItem
@@ -28,6 +25,7 @@ from app.schemas.appointment import AppointmentCreate
 from app.schemas.cart_order import CheckoutRequest, DeliveryMethod, PaymentMethod
 from app.services.appointment_service import AppointmentService
 from app.services.checkout_service import CheckoutService
+from sqlalchemy import select
 from tests.conftest import TestSessionLocal, create_user_helper
 
 
@@ -141,7 +139,7 @@ async def test_concurrent_appointment_booking_conflict_prevention(setup_test_db)
       3. The competing booking raises HTTP 409 Conflict.
       4. Database has exactly one active appointment for that slot.
     """
-    target_slot = datetime(2026, 9, 7, 10, 0, tzinfo=timezone.utc)  # Monday 10:00 AM
+    target_slot = datetime(2026, 9, 7, 10, 0, tzinfo=UTC)  # Monday 10:00 AM
 
     async with TestSessionLocal() as session:
         # Setup Branch

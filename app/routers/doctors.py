@@ -2,15 +2,16 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
+from datetime import date as Date
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import and_, select
+from fastapi import APIRouter, HTTPException, status
+from sqlalchemy import select
 
 from app.config import settings
 from app.dependencies import CurrentUser, DBSession, require_roles
 from app.models.appointment import Appointment, AppointmentStatus
-from app.models.doctor import Doctor, DoctorAvailability, DoctorBranch, DayOfWeek
+from app.models.doctor import Doctor, DoctorAvailability, DoctorBranch
 from app.models.user import UserRole
 from app.schemas.doctor import (
     AvailabilityCreate,
@@ -73,7 +74,7 @@ async def get_doctor_slots(
     db: DBSession,
 ):
     try:
-        target_date = datetime.strptime(date, "%Y-%m-%d").date()
+        target_date = Date.fromisoformat(date)
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD.")
 
@@ -93,7 +94,7 @@ async def get_doctor_slots(
         return []
 
     # Fetch existing booked slots for this doctor on this date
-    day_start = datetime.combine(target_date, datetime.min.time()).replace(tzinfo=timezone.utc)
+    day_start = datetime.combine(target_date, datetime.min.time()).replace(tzinfo=UTC)
     day_end = day_start + timedelta(days=1)
 
     booked_result = await db.execute(
@@ -109,7 +110,7 @@ async def get_doctor_slots(
     # Generate 30-min slots from each availability window
     slot_duration = timedelta(minutes=settings.APPOINTMENT_SLOT_DURATION_MINUTES)
     slots: list[SlotResponse] = []
-    tz = timezone.utc
+    tz = UTC
 
     for window in availability_windows:
         current = datetime.combine(target_date, window.start_time).replace(tzinfo=tz)

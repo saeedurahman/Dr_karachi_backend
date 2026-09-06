@@ -11,16 +11,20 @@ Critical behaviors:
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
 from decimal import Decimal
 
-from fastapi import HTTPException, status
+from fastapi import HTTPException
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.cart import CartItem
 from app.models.notification import NotificationEventType
-from app.models.order import Order, OrderItem, OrderStatus, PaymentMethod, VALID_STATUS_TRANSITIONS
+from app.models.order import (
+    VALID_STATUS_TRANSITIONS,
+    Order,
+    OrderItem,
+    OrderStatus,
+)
 from app.models.product import BranchStock, Product
 from app.models.user import User
 from app.schemas.cart_order import (

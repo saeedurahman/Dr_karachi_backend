@@ -11,17 +11,17 @@ from __future__ import annotations
 import asyncio
 import os
 import uuid
-from typing import AsyncGenerator
+from collections.abc import AsyncGenerator
 
 import pytest
 import pytest_asyncio
-from httpx import ASGITransport, AsyncClient
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-
 from app.database import Base, get_db
 from app.main import create_app
 from app.models.user import User, UserRole
 from app.utils.security import create_access_token, hash_password
+from httpx import ASGITransport, AsyncClient
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 # Default test database URL (configurable via TEST_DATABASE_URL env var)
 TEST_DB_URL = os.getenv(
@@ -50,7 +50,7 @@ async def setup_test_db():
         yield
         async with test_engine.begin() as conn:
             await conn.run_sync(Base.metadata.drop_all)
-    except Exception as e:
+    except (OSError, SQLAlchemyError) as e:
         pytest.skip(f"PostgreSQL test database not accessible at {TEST_DB_URL}: {e}")
 
 

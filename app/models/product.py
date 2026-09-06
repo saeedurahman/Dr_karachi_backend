@@ -10,7 +10,15 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import Boolean, ForeignKey, Index, Numeric, String, Text, UniqueConstraint
+from sqlalchemy import (
+    Boolean,
+    ForeignKey,
+    Index,
+    Numeric,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -52,12 +60,12 @@ class Product(SoftDeleteMixin, Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     # ── Relationships ──────────────────────────────────────────
-    category: Mapped["Category"] = relationship(back_populates="products")  # noqa: F821
-    branch_stock: Mapped[list["BranchStock"]] = relationship(
+    category: Mapped[Category] = relationship(back_populates="products")  # noqa: F821
+    branch_stock: Mapped[list[BranchStock]] = relationship(
         back_populates="product", cascade="all, delete-orphan"
     )
-    cart_items: Mapped[list["CartItem"]] = relationship(back_populates="product")  # noqa: F821
-    order_items: Mapped[list["OrderItem"]] = relationship(back_populates="product")  # noqa: F821
+    cart_items: Mapped[list[CartItem]] = relationship(back_populates="product")  # noqa: F821
+    order_items: Mapped[list[OrderItem]] = relationship(back_populates="product")  # noqa: F821
 
     @property
     def discounted_price(self) -> float:
@@ -96,5 +104,5 @@ class BranchStock(TimestampMixin, Base):
     stock: Mapped[int] = mapped_column(nullable=False, default=0)
 
     # ── Relationships ──────────────────────────────────────────
-    product: Mapped["Product"] = relationship(back_populates="branch_stock")
-    branch: Mapped["Branch"] = relationship(back_populates="branch_stock")  # noqa: F821
+    product: Mapped[Product] = relationship(back_populates="branch_stock")
+    branch: Mapped[Branch] = relationship(back_populates="branch_stock")  # noqa: F821

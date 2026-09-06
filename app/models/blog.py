@@ -55,7 +55,7 @@ class BlogPost(SoftDeleteMixin, Base):
     meta_description: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
     # ── Relationships ──────────────────────────────────────────
-    author: Mapped["User | None"] = relationship(back_populates="blog_posts")  # noqa: F821
+    author: Mapped[User | None] = relationship(back_populates="blog_posts")  # noqa: F821
 
     def __repr__(self) -> str:
         return f"<BlogPost slug={self.slug!r} published={self.is_published}>"

@@ -2,10 +2,9 @@
 Integration tests for Auth flow and RBAC authorization guards.
 """
 import pytest
+from app.models.user import UserRole
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
-
-from app.models.user import UserRole
 from tests.conftest import create_user_helper
 
 

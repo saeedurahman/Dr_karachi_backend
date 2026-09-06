@@ -47,9 +47,9 @@ class CartItem(TimestampMixin, Base):
     quantity: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
 
     # ── Relationships ──────────────────────────────────────────
-    user: Mapped["User"] = relationship(back_populates="cart_items")  # noqa: F821
-    product: Mapped["Product"] = relationship(back_populates="cart_items")  # noqa: F821
-    branch: Mapped["Branch | None"] = relationship(back_populates="cart_items")  # noqa: F821
+    user: Mapped[User] = relationship(back_populates="cart_items")  # noqa: F821
+    product: Mapped[Product] = relationship(back_populates="cart_items")  # noqa: F821
+    branch: Mapped[Branch | None] = relationship(back_populates="cart_items")  # noqa: F821
 
     def __repr__(self) -> str:
         return f"<CartItem user={self.user_id} product={self.product_id} qty={self.quantity}>"

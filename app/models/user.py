@@ -44,25 +44,25 @@ class User(SoftDeleteMixin, Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     # ── Relationships ──────────────────────────────────────────────────────────
-    refresh_tokens: Mapped[list["RefreshToken"]] = relationship(  # noqa: F821
+    refresh_tokens: Mapped[list[RefreshToken]] = relationship(  # noqa: F821
         back_populates="user", cascade="all, delete-orphan", lazy="dynamic"
     )
-    doctor_profile: Mapped["Doctor | None"] = relationship(  # noqa: F821
+    doctor_profile: Mapped[Doctor | None] = relationship(  # noqa: F821
         back_populates="user", uselist=False
     )
-    appointments: Mapped[list["Appointment"]] = relationship(  # noqa: F821
+    appointments: Mapped[list[Appointment]] = relationship(  # noqa: F821
         back_populates="patient", foreign_keys="Appointment.patient_id"
     )
-    cart_items: Mapped[list["CartItem"]] = relationship(  # noqa: F821
+    cart_items: Mapped[list[CartItem]] = relationship(  # noqa: F821
         back_populates="user", cascade="all, delete-orphan"
     )
-    orders: Mapped[list["Order"]] = relationship(back_populates="patient")  # noqa: F821
-    lab_reports: Mapped[list["LabReport"]] = relationship(  # noqa: F821
+    orders: Mapped[list[Order]] = relationship(back_populates="patient")  # noqa: F821
+    lab_reports: Mapped[list[LabReport]] = relationship(  # noqa: F821
         back_populates="patient", foreign_keys="LabReport.patient_id"
     )
-    reviews: Mapped[list["Review"]] = relationship(back_populates="author")  # noqa: F821
-    blog_posts: Mapped[list["BlogPost"]] = relationship(back_populates="author")  # noqa: F821
-    notification_events: Mapped[list["NotificationEvent"]] = relationship(  # noqa: F821
+    reviews: Mapped[list[Review]] = relationship(back_populates="author")  # noqa: F821
+    blog_posts: Mapped[list[BlogPost]] = relationship(back_populates="author")  # noqa: F821
+    notification_events: Mapped[list[NotificationEvent]] = relationship(  # noqa: F821
         back_populates="user"
     )
 

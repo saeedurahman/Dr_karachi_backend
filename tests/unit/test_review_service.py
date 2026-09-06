@@ -2,9 +2,9 @@
 Unit tests for review summary calculations.
 """
 import uuid
-import pytest
 from unittest.mock import AsyncMock, MagicMock
 
+import pytest
 from app.models.review import ReviewTargetType
 from app.services.review_service import ReviewService
 

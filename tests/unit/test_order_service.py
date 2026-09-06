@@ -3,7 +3,6 @@ Unit tests for order total calculation service.
 Validates Decimal precision, delivery methods, and discounts.
 """
 from decimal import Decimal
-import pytest
 
 from app.schemas.cart_order import DeliveryMethod
 from app.services.order_service import CartLineItem, calculate_order_total

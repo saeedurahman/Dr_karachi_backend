@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 
 from app.dependencies import DBSession, require_roles
@@ -11,7 +11,6 @@ from app.models.branch import Branch
 from app.models.user import UserRole
 from app.schemas.branch import BranchCreate, BranchResponse, BranchUpdate
 from app.utils.pagination import PagedResponse, PaginationParams, pagination_params
-from fastapi import Depends
 
 router = APIRouter(prefix="/branches", tags=["Branches"])
 

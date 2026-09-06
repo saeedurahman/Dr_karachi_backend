@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import secrets
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from jose import JWTError, jwt
 from passlib.context import CryptContext
@@ -33,7 +33,7 @@ def create_access_token(subject: str, role: str) -> tuple[str, datetime]:
     Create a short-lived JWT access token.
     Returns (token_str, expires_at).
     """
-    expires_at = datetime.now(timezone.utc) + timedelta(
+    expires_at = datetime.now(UTC) + timedelta(
         minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
     )
     payload = {
@@ -41,7 +41,7 @@ def create_access_token(subject: str, role: str) -> tuple[str, datetime]:
         "role": role,
         "type": "access",
         "exp": expires_at,
-        "iat": datetime.now(timezone.utc),
+        "iat": datetime.now(UTC),
     }
     token = jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
     return token, expires_at

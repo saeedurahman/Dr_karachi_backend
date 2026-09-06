@@ -1,9 +1,7 @@
 from __future__ import annotations
 
 from decimal import Decimal
-from typing import List
 
-from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -46,14 +44,14 @@ class Settings(BaseSettings):
 
     # ── Business Rules ─────────────────────────────────────────
     PLATFORM_FEE_RATE: Decimal = Decimal("0.02")
-    DELIVERY_FEE: Decimal = Decimal("150")
+    DELIVERY_FEE: Decimal = Decimal(150)
     APPOINTMENT_SLOT_DURATION_MINUTES: int = 30
 
     # ── CORS ───────────────────────────────────────────────────
     ALLOWED_ORIGINS: str = "http://localhost:3000"
 
     @property
-    def allowed_origins_list(self) -> List[str]:
+    def allowed_origins_list(self) -> list[str]:
         return [o.strip() for o in self.ALLOWED_ORIGINS.split(",") if o.strip()]
 
     # ── Rate Limiting ──────────────────────────────────────────

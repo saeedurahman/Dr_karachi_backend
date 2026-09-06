@@ -13,9 +13,8 @@ from __future__ import annotations
 
 import uuid
 from decimal import Decimal
-from typing import Optional
 
-from pydantic import BaseModel, Field, computed_field, model_validator
+from pydantic import BaseModel, Field
 
 
 # ── Request schemas ────────────────────────────────────────────────────────────
@@ -24,7 +23,7 @@ class ProductCreate(BaseModel):
     sku: str = Field(..., min_length=1, max_length=100)
     description: str | None = None
     price: Decimal = Field(..., gt=0, decimal_places=2)
-    discount_percent: Decimal = Field(Decimal("0"), ge=0, le=100, decimal_places=2)
+    discount_percent: Decimal = Field(Decimal(0), ge=0, le=100, decimal_places=2)
     category_id: uuid.UUID | None = None
     requires_prescription: bool = False
 
@@ -84,7 +83,7 @@ class ProductResponse(BaseModel):
         cls,
         product: object,
         branch_stock: int | None = None,
-    ) -> "ProductResponse":
+    ) -> ProductResponse:
         """
         Build response from ORM Product + optional branch stock quantity.
         Computes all three price fields here so the router stays thin.

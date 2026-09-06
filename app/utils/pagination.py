@@ -2,12 +2,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Generic, TypeVar
 
 from fastapi import Query
 from pydantic import BaseModel
-
-T = TypeVar("T")
 
 
 @dataclass
@@ -28,7 +25,7 @@ def pagination_params(
     return PaginationParams(page=page, page_size=page_size)
 
 
-class PagedResponse(BaseModel, Generic[T]):
+class PagedResponse[T](BaseModel):
     """Standard paginated list response envelope."""
 
     items: list[T]
@@ -38,7 +35,7 @@ class PagedResponse(BaseModel, Generic[T]):
     pages: int
 
     @classmethod
-    def create(cls, items: list[T], total: int, params: PaginationParams) -> "PagedResponse[T]":
+    def create(cls, items: list[T], total: int, params: PaginationParams) -> PagedResponse[T]:
         pages = max(1, -(-total // params.page_size))  # ceiling division
         return cls(
             items=items,

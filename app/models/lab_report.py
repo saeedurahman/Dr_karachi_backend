@@ -77,13 +77,13 @@ class LabReport(TimestampMixin, Base):
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # ── Relationships ──────────────────────────────────────────
-    patient: Mapped["User"] = relationship(  # noqa: F821
+    patient: Mapped[User] = relationship(  # noqa: F821
         back_populates="lab_reports", foreign_keys=[patient_id]
     )
-    test: Mapped["LabTest | None"] = relationship(  # noqa: F821
+    test: Mapped[LabTest | None] = relationship(  # noqa: F821
         back_populates="lab_reports", foreign_keys=[test_id]
     )
-    appointment: Mapped["Appointment | None"] = relationship(  # noqa: F821
+    appointment: Mapped[Appointment | None] = relationship(  # noqa: F821
         back_populates="lab_reports", foreign_keys=[appointment_id]
     )
 

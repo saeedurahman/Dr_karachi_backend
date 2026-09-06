@@ -50,13 +50,13 @@ class Category(SoftDeleteMixin, Base):
     )
 
     # ── Relationships ──────────────────────────────────────────
-    parent: Mapped["Category | None"] = relationship(
+    parent: Mapped[Category | None] = relationship(
         "Category", remote_side="Category.id", back_populates="children"
     )
-    children: Mapped[list["Category"]] = relationship(
+    children: Mapped[list[Category]] = relationship(
         "Category", back_populates="parent"
     )
-    products: Mapped[list["Product"]] = relationship(  # noqa: F821
+    products: Mapped[list[Product]] = relationship(  # noqa: F821
         back_populates="category"
     )
 

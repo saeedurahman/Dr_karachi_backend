@@ -38,8 +38,8 @@ class LabTest(SoftDeleteMixin, Base):
     turnaround_hours: Mapped[int | None] = mapped_column(nullable=True)
 
     # ── Relationships ──────────────────────────────────────────
-    branch: Mapped["Branch | None"] = relationship(back_populates="lab_tests")  # noqa: F821
-    lab_reports: Mapped[list["LabReport"]] = relationship(  # noqa: F821
+    branch: Mapped[Branch | None] = relationship(back_populates="lab_tests")  # noqa: F821
+    lab_reports: Mapped[list[LabReport]] = relationship(  # noqa: F821
         back_populates="test", foreign_keys="LabReport.test_id"
     )
 

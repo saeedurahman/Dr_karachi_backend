@@ -90,9 +90,9 @@ class Order(TimestampMixin, Base):
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # ── Relationships ──────────────────────────────────────────
-    patient: Mapped["User"] = relationship(back_populates="orders")  # noqa: F821
-    branch: Mapped["Branch | None"] = relationship(back_populates="orders")  # noqa: F821
-    items: Mapped[list["OrderItem"]] = relationship(
+    patient: Mapped[User] = relationship(back_populates="orders")  # noqa: F821
+    branch: Mapped[Branch | None] = relationship(back_populates="orders")  # noqa: F821
+    items: Mapped[list[OrderItem]] = relationship(
         back_populates="order", cascade="all, delete-orphan"
     )
 
@@ -137,5 +137,5 @@ class OrderItem(TimestampMixin, Base):
         return float(self.price_snapshot) * (1 - float(self.discount_snapshot) / 100) * self.quantity
 
     # ── Relationships ──────────────────────────────────────────
-    order: Mapped["Order"] = relationship(back_populates="items")
-    product: Mapped["Product | None"] = relationship(back_populates="order_items")  # noqa: F821
+    order: Mapped[Order] = relationship(back_populates="items")
+    product: Mapped[Product | None] = relationship(back_populates="order_items")  # noqa: F821

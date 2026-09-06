@@ -20,7 +20,7 @@ from app.models.user import User, UserRole
 from app.utils.security import decode_access_token
 
 # Re-export get_db for convenience
-__all__ = ["get_db", "get_current_user", "require_roles", "DBSession", "CurrentUser"]
+__all__ = ["CurrentUser", "DBSession", "get_current_user", "get_db", "require_roles"]
 
 bearer_scheme = HTTPBearer()
 

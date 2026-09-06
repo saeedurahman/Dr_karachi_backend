@@ -11,8 +11,7 @@ Key invariants:
 from __future__ import annotations
 
 import uuid
-from datetime import date, datetime, time, timedelta, timezone
-from typing import Sequence
+from datetime import UTC, date, datetime, time, timedelta
 
 from fastapi import HTTPException, status
 from sqlalchemy import select
@@ -22,7 +21,7 @@ from sqlalchemy.orm import selectinload
 from app.config import settings
 from app.models.appointment import Appointment, AppointmentStatus
 from app.models.branch import Branch
-from app.models.doctor import DayOfWeek, Doctor, DoctorAvailability
+from app.models.doctor import Doctor, DoctorAvailability
 from app.models.notification import NotificationEventType
 from app.models.user import User, UserRole
 from app.schemas.appointment import (
@@ -67,7 +66,7 @@ class AppointmentService:
             return []
 
         # 2. Fetch active booked appointments for this doctor on that target date
-        day_start = datetime.combine(target_date, time.min).replace(tzinfo=timezone.utc)
+        day_start = datetime.combine(target_date, time.min).replace(tzinfo=UTC)
         day_end = day_start + timedelta(days=1)
 
         booked_result = await self.db.execute(
@@ -86,7 +85,7 @@ class AppointmentService:
         # 3. Generate 30-min intervals
         slot_duration = timedelta(minutes=settings.APPOINTMENT_SLOT_DURATION_MINUTES)
         slots: list[SlotResponse] = []
-        tz = timezone.utc
+        tz = UTC
 
         for win in windows:
             current = datetime.combine(target_date, win.start_time).replace(tzinfo=tz)
@@ -118,7 +117,7 @@ class AppointmentService:
         # Ensure slot_datetime is in UTC
         slot_dt = body.slot_datetime
         if slot_dt.tzinfo is None:
-            slot_dt = slot_dt.replace(tzinfo=timezone.utc)
+            slot_dt = slot_dt.replace(tzinfo=UTC)
 
         # 1. Acquire row-level lock on the Doctor
         doc_result = await self.db.execute(

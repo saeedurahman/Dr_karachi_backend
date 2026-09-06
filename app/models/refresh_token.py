@@ -7,9 +7,9 @@ Tokens are hashed before storage (SHA-256); raw token is never persisted.
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 
-from sqlalchemy import DateTime, ForeignKey, String, func
+from sqlalchemy import DateTime, ForeignKey, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -37,7 +37,7 @@ class RefreshToken(TimestampMixin, Base):
     )
 
     # ── Relationships ──────────────────────────────────────────
-    user: Mapped["User"] = relationship(back_populates="refresh_tokens")  # noqa: F821
+    user: Mapped[User] = relationship(back_populates="refresh_tokens")  # noqa: F821
 
     @property
     def is_revoked(self) -> bool:
@@ -45,8 +45,7 @@ class RefreshToken(TimestampMixin, Base):
 
     @property
     def is_expired(self) -> bool:
-        from datetime import timezone
-        return datetime.now(timezone.utc) >= self.expires_at
+        return datetime.now(UTC) >= self.expires_at
 
     @property
     def is_valid(self) -> bool:

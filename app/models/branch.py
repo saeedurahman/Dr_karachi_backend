@@ -36,18 +36,18 @@ class Branch(TimestampMixin, Base):
     services: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
 
     # ── Relationships ──────────────────────────────────────────
-    doctor_branches: Mapped[list["DoctorBranch"]] = relationship(  # noqa: F821
+    doctor_branches: Mapped[list[DoctorBranch]] = relationship(  # noqa: F821
         back_populates="branch"
     )
-    appointments: Mapped[list["Appointment"]] = relationship(  # noqa: F821
+    appointments: Mapped[list[Appointment]] = relationship(  # noqa: F821
         back_populates="branch"
     )
-    branch_stock: Mapped[list["BranchStock"]] = relationship(  # noqa: F821
+    branch_stock: Mapped[list[BranchStock]] = relationship(  # noqa: F821
         back_populates="branch"
     )
-    cart_items: Mapped[list["CartItem"]] = relationship(back_populates="branch")  # noqa: F821
-    orders: Mapped[list["Order"]] = relationship(back_populates="branch")  # noqa: F821
-    lab_tests: Mapped[list["LabTest"]] = relationship(back_populates="branch")  # noqa: F821
+    cart_items: Mapped[list[CartItem]] = relationship(back_populates="branch")  # noqa: F821
+    orders: Mapped[list[Order]] = relationship(back_populates="branch")  # noqa: F821
+    lab_tests: Mapped[list[LabTest]] = relationship(back_populates="branch")  # noqa: F821
 
     def __repr__(self) -> str:
         return f"<Branch name={self.name!r} city={self.city!r}>"

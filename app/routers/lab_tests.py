@@ -12,12 +12,12 @@ from __future__ import annotations
 
 import math
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, HTTPException, Query, status
 from sqlalchemy import func, or_, select
 
-from app.dependencies import CurrentUser, DBSession, require_roles
+from app.dependencies import DBSession, require_roles
 from app.models.lab_test import LabTest
 from app.models.user import UserRole
 from app.schemas.lab_test import (
@@ -175,6 +175,6 @@ async def delete_lab_test(test_id: uuid.UUID, db: DBSession):
     if not test:
         raise HTTPException(status_code=404, detail="Lab test not found.")
 
-    test.deleted_at = datetime.now(timezone.utc)
+    test.deleted_at = datetime.now(UTC)
     test.is_active = False
     await db.flush()

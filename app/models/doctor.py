@@ -60,14 +60,14 @@ class Doctor(SoftDeleteMixin, Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     # ── Relationships ──────────────────────────────────────────
-    user: Mapped["User"] = relationship(back_populates="doctor_profile")  # noqa: F821
-    doctor_branches: Mapped[list["DoctorBranch"]] = relationship(
+    user: Mapped[User] = relationship(back_populates="doctor_profile")  # noqa: F821
+    doctor_branches: Mapped[list[DoctorBranch]] = relationship(
         back_populates="doctor", cascade="all, delete-orphan"
     )
-    availability: Mapped[list["DoctorAvailability"]] = relationship(
+    availability: Mapped[list[DoctorAvailability]] = relationship(
         back_populates="doctor", cascade="all, delete-orphan"
     )
-    appointments: Mapped[list["Appointment"]] = relationship(  # noqa: F821
+    appointments: Mapped[list[Appointment]] = relationship(  # noqa: F821
         back_populates="doctor", foreign_keys="Appointment.doctor_id"
     )
 
@@ -101,8 +101,8 @@ class DoctorBranch(TimestampMixin, Base):
     is_primary: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     # ── Relationships ──────────────────────────────────────────
-    doctor: Mapped["Doctor"] = relationship(back_populates="doctor_branches")
-    branch: Mapped["Branch"] = relationship(back_populates="doctor_branches")  # noqa: F821
+    doctor: Mapped[Doctor] = relationship(back_populates="doctor_branches")
+    branch: Mapped[Branch] = relationship(back_populates="doctor_branches")  # noqa: F821
 
 
 class DoctorAvailability(TimestampMixin, Base):
@@ -142,5 +142,5 @@ class DoctorAvailability(TimestampMixin, Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     # ── Relationships ──────────────────────────────────────────
-    doctor: Mapped["Doctor"] = relationship(back_populates="availability")
-    branch: Mapped["Branch"] = relationship()  # noqa: F821
+    doctor: Mapped[Doctor] = relationship(back_populates="availability")
+    branch: Mapped[Branch] = relationship()  # noqa: F821
