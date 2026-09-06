@@ -25,6 +25,26 @@ class Settings(BaseSettings):
     DATABASE_URL: str  # async URL  (asyncpg)
     SYNC_DATABASE_URL: str  # sync URL   (psycopg2, Alembic)
 
+    @field_validator("DATABASE_URL", mode="before")
+    @classmethod
+    def _ensure_async_driver(cls, value: str) -> str:
+        """Railway provides DATABASE_URL in sync format (postgres:// or
+        postgresql://), which maps to the psycopg2 driver. The async
+        SQLAlchemy engine requires an async driver (asyncpg), so we
+        rewrite the URL's scheme accordingly.
+        """
+        if not isinstance(value, str):
+            return value
+
+        if value.startswith("postgresql+asyncpg://"):
+            return value
+        if value.startswith("postgresql://"):
+            return value.replace("postgresql://", "postgresql+asyncpg://", 1)
+        if value.startswith("postgres://"):
+            return value.replace("postgres://", "postgresql+asyncpg://", 1)
+
+        return value
+
     # ── JWT ────────────────────────────────────────────────────
     SECRET_KEY: str
     ALGORITHM: str = "HS256"
