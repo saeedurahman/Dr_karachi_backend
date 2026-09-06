@@ -7,9 +7,9 @@ from sqlalchemy.ext.asyncio import (
     async_sessionmaker,
     create_async_engine,
 )
-from sqlalchemy.orm import DeclarativeBase
 
 from app.config import settings
+from app.database_base import Base
 
 # ── Async engine ───────────────────────────────────────────────────────────────
 engine = create_async_engine(
@@ -28,12 +28,6 @@ AsyncSessionLocal = async_sessionmaker(
     autocommit=False,
     expire_on_commit=False,
 )
-
-
-# ── Declarative base ───────────────────────────────────────────────────────────
-class Base(DeclarativeBase):
-    """Shared declarative base — all ORM models inherit from this."""
-    pass
 
 
 # ── Dependency ─────────────────────────────────────────────────────────────────
