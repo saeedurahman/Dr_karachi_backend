@@ -65,3 +65,11 @@ class ReviewListResponse(BaseModel):
     page: int
     limit: int
     pages: int
+
+
+class ReviewEligibilityResponse(BaseModel):
+    eligible: bool
+    has_reviewed: bool
+    existing_review: ReviewResponse | None = None
+    reason: str | None = None
+

@@ -22,8 +22,11 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.models.appointment import Appointment, AppointmentStatus
 from app.models.branch import Branch
 from app.models.doctor import Doctor
+from app.models.lab_booking import LabBooking, LabBookingStatus
+from app.models.lab_report import LabReport
 from app.models.lab_test import LabTest
 from app.models.notification import NotificationEventType
 from app.models.review import Review, ReviewTargetType
@@ -31,6 +34,7 @@ from app.models.user import User
 from app.schemas.review import (
     ReviewAuthorSummary,
     ReviewCreate,
+    ReviewEligibilityResponse,
     ReviewResponse,
     ReviewSummaryResponse,
 )
@@ -41,7 +45,7 @@ class ReviewService:
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
 
-    # ── 1. Target Validation ───────────────────────────────────────────────────
+    # ── 1. Target Validation & Patient Eligibility ─────────────────────────────
     async def validate_target_exists(self, target_type: ReviewTargetType, target_id: uuid.UUID) -> None:
         if target_type == ReviewTargetType.doctor:
             res = await self.db.execute(
@@ -64,10 +68,109 @@ class ReviewService:
                         detail=f"Service (lab test or branch) with ID '{target_id}' not found.",
                     )
 
+    async def validate_user_eligible_to_review(
+        self, user_id: uuid.UUID, target_type: ReviewTargetType, target_id: uuid.UUID
+    ) -> None:
+        if target_type == ReviewTargetType.doctor:
+            res = await self.db.execute(
+                select(Appointment.id).where(
+                    Appointment.patient_id == user_id,
+                    Appointment.doctor_id == target_id,
+                    Appointment.status == AppointmentStatus.completed,
+                ).limit(1)
+            )
+            if not res.scalar_one_or_none():
+                raise HTTPException(
+                    status_code=403,
+                    detail="You can only review a doctor after completing an appointment with them.",
+                )
+        elif target_type == ReviewTargetType.service:
+            # Check completed lab booking or delivered lab report
+            booking_res = await self.db.execute(
+                select(LabBooking.id).where(
+                    LabBooking.patient_id == user_id,
+                    LabBooking.test_id == target_id,
+                    LabBooking.status == LabBookingStatus.completed,
+                ).limit(1)
+            )
+            if not booking_res.scalar_one_or_none():
+                report_res = await self.db.execute(
+                    select(LabReport.id).where(
+                        LabReport.patient_id == user_id,
+                        LabReport.test_id == target_id,
+                    ).limit(1)
+                )
+                if not report_res.scalar_one_or_none():
+                    raise HTTPException(
+                        status_code=403,
+                        detail="You can only review a diagnostic test after completing your test or receiving your report.",
+                    )
+
+    async def check_eligibility(
+        self, user: User, target_type: ReviewTargetType, target_id: uuid.UUID
+    ) -> ReviewEligibilityResponse:
+        # 1. Target existence
+        await self.validate_target_exists(target_type, target_id)
+
+        # 2. Check if user already reviewed
+        existing_res = await self.db.execute(
+            select(Review).where(
+                Review.user_id == user.id,
+                Review.target_type == target_type,
+                Review.target_id == target_id,
+            ).options(selectinload(Review.author))
+        )
+        existing_review_model = existing_res.scalar_one_or_none()
+        existing_review = self._build_response(existing_review_model) if existing_review_model else None
+        has_reviewed = existing_review is not None
+
+        # 3. Check eligibility
+        eligible = False
+        reason = None
+        if target_type == ReviewTargetType.doctor:
+            res = await self.db.execute(
+                select(Appointment.id).where(
+                    Appointment.patient_id == user.id,
+                    Appointment.doctor_id == target_id,
+                    Appointment.status == AppointmentStatus.completed,
+                ).limit(1)
+            )
+            eligible = res.scalar_one_or_none() is not None
+            if not eligible:
+                reason = "Patient reviews are unlocked after your consultation is completed."
+        elif target_type == ReviewTargetType.service:
+            booking_res = await self.db.execute(
+                select(LabBooking.id).where(
+                    LabBooking.patient_id == user.id,
+                    LabBooking.test_id == target_id,
+                    LabBooking.status == LabBookingStatus.completed,
+                ).limit(1)
+            )
+            eligible = booking_res.scalar_one_or_none() is not None
+            if not eligible:
+                report_res = await self.db.execute(
+                    select(LabReport.id).where(
+                        LabReport.patient_id == user.id,
+                        LabReport.test_id == target_id,
+                    ).limit(1)
+                )
+                eligible = report_res.scalar_one_or_none() is not None
+            if not eligible:
+                reason = "Patient reviews are unlocked after your diagnostic test is completed."
+
+        return ReviewEligibilityResponse(
+            eligible=eligible,
+            has_reviewed=has_reviewed,
+            existing_review=existing_review,
+            reason=reason,
+        )
+
     # ── 2. Atomic Upsert Review ────────────────────────────────────────────────
     async def submit_review(self, user: User, body: ReviewCreate) -> ReviewResponse:
         # Validate target
         await self.validate_target_exists(body.target_type, body.target_id)
+        # Enforce verified patient eligibility
+        await self.validate_user_eligible_to_review(user.id, body.target_type, body.target_id)
 
         now = datetime.now(UTC)
 

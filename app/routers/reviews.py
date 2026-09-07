@@ -16,12 +16,13 @@ from fastapi import APIRouter, Query, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
 
-from app.dependencies import CurrentUser, DBSession, require_roles
+from app.dependencies import CurrentUser, DBSession, OptionalCurrentUser, require_roles
 from app.models.review import Review, ReviewTargetType
 from app.models.user import UserRole
 from app.schemas.review import (
     ReviewApprovalUpdate,
     ReviewCreate,
+    ReviewEligibilityResponse,
     ReviewListResponse,
     ReviewResponse,
     ReviewSummaryResponse,
@@ -47,6 +48,23 @@ async def submit_review(
 
 
 @router.get(
+    "/eligibility",
+    response_model=ReviewEligibilityResponse,
+    summary="Check patient review eligibility and existing review (Patient)",
+)
+async def check_review_eligibility(
+    target_type: ReviewTargetType,
+    target_id: uuid.UUID,
+    current_user: CurrentUser,
+    db: DBSession,
+):
+    service = ReviewService(db)
+    return await service.check_eligibility(
+        user=current_user, target_type=target_type, target_id=target_id
+    )
+
+
+@router.get(
     "",
     response_model=ReviewListResponse,
     summary="List reviews (public sees only approved; staff can filter by status)",
@@ -58,7 +76,7 @@ async def list_reviews(
     is_approved: bool | None = None,
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
-    current_user: CurrentUser = None,
+    current_user: OptionalCurrentUser = None,
 ):
     query = select(Review).options(selectinload(Review.author))
 
