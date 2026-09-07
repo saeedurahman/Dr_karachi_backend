@@ -7,6 +7,7 @@ from datetime import date as Date
 
 from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 
 from app.config import settings
 from app.dependencies import CurrentUser, DBSession, require_roles
@@ -16,12 +17,37 @@ from app.models.user import UserRole
 from app.schemas.doctor import (
     AvailabilityCreate,
     AvailabilityResponse,
+    BranchSummary,
     DoctorBranchAssign,
     DoctorCreate,
     DoctorResponse,
     DoctorUpdate,
     SlotResponse,
 )
+
+
+def _build_doctor_response(doctor: Doctor) -> DoctorResponse:
+    """Build a DoctorResponse with derived full_name and branches fields."""
+    full_name = doctor.user.full_name if doctor.user else ""
+    branches = [
+        BranchSummary.model_validate(doc_branch.branch)
+        for doc_branch in (doctor.doctor_branches or [])
+        if doc_branch.branch is not None
+    ]
+    return DoctorResponse(
+        id=doctor.id,
+        user_id=doctor.user_id,
+        full_name=full_name,
+        specialization=doctor.specialization,
+        qualification=doctor.qualification,
+        experience_years=doctor.experience_years,
+        consultation_fee=doctor.consultation_fee,
+        bio=doctor.bio,
+        profile_image_url=doctor.profile_image_url,
+        is_active=doctor.is_active,
+        branches=branches,
+        created_at=doctor.created_at,
+    )
 
 router = APIRouter(prefix="/doctors", tags=["Doctors"])
 
@@ -36,7 +62,14 @@ async def list_doctors(
     branch_id: uuid.UUID | None = None,
     specialization: str | None = None,
 ):
-    query = select(Doctor).where(Doctor.deleted_at.is_(None), Doctor.is_active == True)
+    query = (
+        select(Doctor)
+        .where(Doctor.deleted_at.is_(None), Doctor.is_active == True)
+        .options(
+            selectinload(Doctor.user),
+            selectinload(Doctor.doctor_branches).selectinload(DoctorBranch.branch),
+        )
+    )
     if specialization:
         query = query.where(Doctor.specialization.ilike(f"%{specialization}%"))
     if branch_id:
@@ -44,7 +77,7 @@ async def list_doctors(
 
     result = await db.execute(query)
     doctors = result.scalars().all()
-    return [DoctorResponse.model_validate(d) for d in doctors]
+    return [_build_doctor_response(d) for d in doctors]
 
 
 @router.get(
@@ -54,12 +87,17 @@ async def list_doctors(
 )
 async def get_doctor(doctor_id: uuid.UUID, db: DBSession):
     result = await db.execute(
-        select(Doctor).where(Doctor.id == doctor_id, Doctor.deleted_at.is_(None))
+        select(Doctor)
+        .where(Doctor.id == doctor_id, Doctor.deleted_at.is_(None))
+        .options(
+            selectinload(Doctor.user),
+            selectinload(Doctor.doctor_branches).selectinload(DoctorBranch.branch),
+        )
     )
     doctor = result.scalar_one_or_none()
     if not doctor:
         raise HTTPException(status_code=404, detail="Doctor not found.")
-    return DoctorResponse.model_validate(doctor)
+    return _build_doctor_response(doctor)
 
 
 @router.get(

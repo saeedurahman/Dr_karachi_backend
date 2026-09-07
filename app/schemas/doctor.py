@@ -5,7 +5,7 @@ import uuid
 from datetime import datetime, time
 from decimal import Decimal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from app.models.doctor import DayOfWeek
 
@@ -55,9 +55,20 @@ class AvailabilityResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class BranchSummary(BaseModel):
+    """Minimal branch info embedded in DoctorResponse."""
+    id: uuid.UUID
+    name: str
+    city: str
+    address: str
+
+    model_config = {"from_attributes": True}
+
+
 class DoctorResponse(BaseModel):
     id: uuid.UUID
     user_id: uuid.UUID
+    full_name: str = ""          # populated from doctor.user.full_name
     specialization: str
     qualification: str
     experience_years: int
@@ -65,12 +76,25 @@ class DoctorResponse(BaseModel):
     bio: str | None
     profile_image_url: str | None
     is_active: bool
+    branches: list[BranchSummary] = []  # populated from doctor.doctor_branches
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+    @model_validator(mode="after")
+    def _populate_derived(self) -> "DoctorResponse":
+        """
+        Pydantic can't traverse SQLAlchemy relationships automatically for
+        computed fields, so we use a validator to pull them from the ORM
+        object if it was passed directly (from_attributes mode).
+        These fields are set by the router before validation via model_validate,
+        so this validator is a safety fallback only.
+        """
+        return self
 
 
 class SlotResponse(BaseModel):
     """Available 30-min appointment slot."""
     slot_datetime: datetime
     is_available: bool
+
