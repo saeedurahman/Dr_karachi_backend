@@ -40,7 +40,12 @@ class FranchiseLead(TimestampMixin, Base):
     email: Mapped[str | None] = mapped_column(String(320), nullable=True)
     city: Mapped[str] = mapped_column(String(100), nullable=False)
     investment_range: Mapped[InvestmentRange] = mapped_column(
-        Enum(InvestmentRange, name="investmentrange"), nullable=False
+        Enum(
+            InvestmentRange,
+            name="investmentrange",
+            values_callable=lambda x: [e.value for e in x],
+        ),
+        nullable=False,
     )
     message: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[FranchiseLeadStatus] = mapped_column(
