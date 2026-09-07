@@ -249,7 +249,11 @@ class AppointmentService:
         if not appointment:
             raise HTTPException(status_code=404, detail="Appointment not found.")
 
-        # If patient, they can only cancel their own upcoming appointment
+        # Cache doctor and branch relationships eagerly to avoid lazy-loading on async session
+        doctor = appointment.doctor
+        branch = appointment.branch
+
+        # Role checks
         if actor.role == UserRole.patient:
             if appointment.patient_id != actor.id:
                 raise HTTPException(status_code=403, detail="Not authorized.")
@@ -258,16 +262,23 @@ class AppointmentService:
                     status_code=400,
                     detail="Patients can only cancel appointments.",
                 )
-
-        if body.status == AppointmentStatus.cancelled:
-            if not body.cancellation_reason:
+            if appointment.status == AppointmentStatus.cancelled:
                 raise HTTPException(
                     status_code=400,
-                    detail="cancellation_reason is required when cancelling.",
+                    detail="Appointment is already cancelled.",
                 )
+            if appointment.status == AppointmentStatus.completed:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Completed appointments cannot be cancelled.",
+                )
+
+        if body.status == AppointmentStatus.cancelled:
+            # cancellation_reason is optional/nullable per specification
             appointment.cancellation_reason = body.cancellation_reason
 
         appointment.status = body.status
+        appointment.updated_at = datetime.now(UTC)
         await self.db.flush()
 
         if body.status == AppointmentStatus.cancelled:
@@ -277,13 +288,26 @@ class AppointmentService:
                 payload={
                     "appointment_id": str(appointment.id),
                     "patient_id": str(appointment.patient_id),
-                    "reason": appointment.cancellation_reason,
+                    "reason": appointment.cancellation_reason or "Cancelled by patient",
+                },
+                user_id=appointment.patient_id,
+                delivery_channel="whatsapp",
+            )
+        elif body.status == AppointmentStatus.confirmed:
+            await emit_event(
+                db=self.db,
+                event_type=NotificationEventType.appointment_confirmed,
+                payload={
+                    "appointment_id": str(appointment.id),
+                    "patient_id": str(appointment.patient_id),
                 },
                 user_id=appointment.patient_id,
                 delivery_channel="whatsapp",
             )
 
-        return self._build_response(appointment, appointment.doctor, appointment.branch)
+        await self.db.commit()
+
+        return self._build_response(appointment, doctor, branch)
 
     # ── Helper ─────────────────────────────────────────────────────────────────
     @staticmethod

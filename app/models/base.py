@@ -9,11 +9,15 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 from sqlalchemy import DateTime, func
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, declared_attr, mapped_column
 
 
 class TimestampMixin:
     """Adds created_at and updated_at to any model."""
+
+    @declared_attr
+    def __mapper_args__(cls):
+        return {"eager_defaults": True}
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

@@ -29,9 +29,9 @@ class AppointmentCreate(BaseModel):
 class AppointmentStatusUpdate(BaseModel):
     status: AppointmentStatus
     cancellation_reason: str | None = Field(
-        None,
+        default=None,
         max_length=500,
-        description="Required if status is 'cancelled'",
+        description="Optional reason if status is 'cancelled'",
     )
 
 
