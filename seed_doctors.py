@@ -155,7 +155,7 @@ async def main() -> None:
                 phone=phone,
                 hashed_password=hash_password(PASSWORD),
                 role=UserRole.doctor,
-                is_verified=True,
+                is_active=True,
             )
             db.add(user)
             await db.flush()  # get user.id
