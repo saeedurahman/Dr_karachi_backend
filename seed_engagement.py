@@ -283,9 +283,8 @@ async def run_seed():
                     doctor_id=doctor.id,
                     branch_id=branch.id,
                     slot_datetime=datetime.now(UTC) - timedelta(days=5),
-                    fee=doctor.consultation_fee,
                     status=AppointmentStatus.completed,
-                    patient_notes="Follow-up consultation completed successfully.",
+                    notes="Follow-up consultation completed successfully.",
                 )
                 session.add(completed_appt)
                 print(f"  [Created] Completed appointment for patient {patient.phone} with Dr. {doctor.id}")
@@ -355,8 +354,8 @@ async def run_seed():
                         doctor_id=doctor.id,
                         branch_id=branch.id,
                         slot_datetime=datetime.now(UTC) - timedelta(days=10),
-                        fee=doctor.consultation_fee,
                         status=AppointmentStatus.completed,
+                        notes="Consultation completed.",
                     )
                 )
 
