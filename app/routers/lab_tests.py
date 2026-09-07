@@ -13,19 +13,28 @@ from __future__ import annotations
 import math
 import uuid
 from datetime import UTC, datetime
+from decimal import Decimal
 
 from fastapi import APIRouter, HTTPException, Query, status
 from sqlalchemy import func, or_, select
+from sqlalchemy.orm import selectinload
 
-from app.dependencies import DBSession, require_roles
+from app.dependencies import CurrentUser, DBSession, require_roles
+from app.models.branch import Branch
+from app.models.lab_booking import CollectionType, LabBooking, LabBookingStatus
 from app.models.lab_test import LabTest
+from app.models.notification import NotificationEventType
 from app.models.user import UserRole
 from app.schemas.lab_test import (
+    LabBookingCreate,
+    LabBookingListResponse,
+    LabBookingResponse,
     LabTestCreate,
     LabTestListResponse,
     LabTestResponse,
     LabTestUpdate,
 )
+from app.services.notification_service import emit_event
 
 router = APIRouter(prefix="/lab-tests", tags=["Lab Tests"])
 
@@ -178,3 +187,164 @@ async def delete_lab_test(test_id: uuid.UUID, db: DBSession):
     test.deleted_at = datetime.now(UTC)
     test.is_active = False
     await db.flush()
+
+
+# ── Lab Test Booking ─────────────────────────────────────────────────────────
+
+@router.post(
+    "/{test_id}/book",
+    response_model=LabBookingResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Book a diagnostic lab test (walk-in or home sampling)",
+)
+async def book_lab_test(
+    test_id: uuid.UUID,
+    body: LabBookingCreate,
+    current_user: CurrentUser,
+    db: DBSession,
+):
+    # 1. Fetch test
+    test_result = await db.execute(
+        select(LabTest).where(
+            LabTest.id == test_id,
+            LabTest.is_active.is_(True),
+            LabTest.deleted_at.is_(None),
+        )
+    )
+    test = test_result.scalar_one_or_none()
+    if not test:
+        raise HTTPException(status_code=404, detail="Lab test not found or unavailable.")
+
+    # 2. Verify branch
+    branch_result = await db.execute(
+        select(Branch).where(Branch.id == body.branch_id, Branch.is_active.is_(True))
+    )
+    branch = branch_result.scalar_one_or_none()
+    if not branch:
+        raise HTTPException(status_code=404, detail="Branch not found or inactive.")
+
+    # If test is branch-specific, ensure branch matches
+    if test.branch_id and test.branch_id != body.branch_id:
+        raise HTTPException(status_code=400, detail="This test is not available at the selected branch.")
+
+    # 3. If home sampling, verify test supports it and address is provided
+    if body.collection_type == CollectionType.home_sampling:
+        if not test.home_sampling_available:
+            raise HTTPException(
+                status_code=400,
+                detail="Home sample collection is not available for this test.",
+            )
+        if not body.collection_address or not body.collection_address.strip():
+            raise HTTPException(
+                status_code=400,
+                detail="Collection address is required for home sampling.",
+            )
+        total_price = Decimal(str(test.price)) + Decimal(str(test.home_sampling_fee))
+    else:
+        total_price = Decimal(str(test.price))
+
+    # 4. Create booking
+    booking = LabBooking(
+        patient_id=current_user.id,
+        test_id=test.id,
+        branch_id=branch.id,
+        collection_type=body.collection_type,
+        preferred_date=body.preferred_date,
+        time_slot=body.time_slot,
+        collection_address=body.collection_address.strip() if body.collection_address else None,
+        notes=body.notes,
+        status=LabBookingStatus.pending,
+        total_price=total_price,
+    )
+    db.add(booking)
+    await db.flush()
+
+    # 5. Emit event
+    await emit_event(
+        db=db,
+        event_type=NotificationEventType.order_placed,
+        payload={
+            "booking_id": str(booking.id),
+            "patient_id": str(current_user.id),
+            "test_name": test.name,
+            "branch_name": branch.name,
+            "collection_type": body.collection_type.value,
+            "preferred_date": body.preferred_date.isoformat(),
+            "total_price": str(total_price),
+        },
+        user_id=current_user.id,
+        delivery_channel="whatsapp",
+    )
+
+    await db.commit()
+
+    return LabBookingResponse(
+        id=booking.id,
+        patient_id=booking.patient_id,
+        test_id=booking.test_id,
+        branch_id=booking.branch_id,
+        collection_type=booking.collection_type,
+        preferred_date=booking.preferred_date,
+        time_slot=booking.time_slot,
+        collection_address=booking.collection_address,
+        notes=booking.notes,
+        status=booking.status,
+        total_price=booking.total_price,
+        test=LabTestResponse.model_validate(test),
+        created_at=booking.created_at,
+        updated_at=booking.updated_at,
+    )
+
+
+@router.get(
+    "/bookings/my",
+    response_model=LabBookingListResponse,
+    summary="List patient's own lab test bookings",
+)
+async def list_my_lab_bookings(
+    current_user: CurrentUser,
+    db: DBSession,
+    page: int = Query(1, ge=1),
+    limit: int = Query(20, ge=1, le=100),
+):
+    query = (
+        select(LabBooking)
+        .options(selectinload(LabBooking.test))
+        .where(LabBooking.patient_id == current_user.id)
+        .order_by(LabBooking.created_at.desc())
+    )
+    count_query = select(func.count()).select_from(query.subquery())
+    total_result = await db.execute(count_query)
+    total = total_result.scalar_one()
+
+    offset = (page - 1) * limit
+    items_result = await db.execute(query.offset(offset).limit(limit))
+    bookings = items_result.scalars().all()
+
+    pages = math.ceil(total / limit) if limit > 0 else 1
+
+    return LabBookingListResponse(
+        items=[
+            LabBookingResponse(
+                id=b.id,
+                patient_id=b.patient_id,
+                test_id=b.test_id,
+                branch_id=b.branch_id,
+                collection_type=b.collection_type,
+                preferred_date=b.preferred_date,
+                time_slot=b.time_slot,
+                collection_address=b.collection_address,
+                notes=b.notes,
+                status=b.status,
+                total_price=b.total_price,
+                test=LabTestResponse.model_validate(b.test) if b.test else None,
+                created_at=b.created_at,
+                updated_at=b.updated_at,
+            )
+            for b in bookings
+        ],
+        total=total,
+        page=page,
+        limit=limit,
+        pages=pages,
+    )

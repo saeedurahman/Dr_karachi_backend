@@ -16,6 +16,7 @@ import uuid
 
 from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile, status
 from sqlalchemy import func, select
+from sqlalchemy.orm import selectinload
 
 from app.dependencies import CurrentUser, DBSession, require_roles
 from app.models.lab_report import LabReport
@@ -30,6 +31,24 @@ from app.services.report_service import ReportService
 from app.utils.storage import get_storage
 
 router = APIRouter(prefix="/lab-reports", tags=["Lab Reports"])
+
+
+def _build_report_response(r: LabReport) -> LabReportResponse:
+    return LabReportResponse(
+        id=r.id,
+        patient_id=r.patient_id,
+        test_id=r.test_id,
+        test_name=r.test.name if r.test else None,
+        test_code=r.test.code if r.test else None,
+        appointment_id=r.appointment_id,
+        file_name=r.file_name,
+        file_type=r.file_type,
+        is_visible=r.is_visible,
+        uploaded_by=r.uploaded_by,
+        notes=r.notes,
+        created_at=r.created_at,
+        updated_at=r.updated_at,
+    )
 
 
 @router.post(
@@ -73,7 +92,7 @@ async def list_lab_reports(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
 ):
-    query = select(LabReport)
+    query = select(LabReport).options(selectinload(LabReport.test))
 
     if current_user.role == UserRole.patient:
         query = query.where(
@@ -103,7 +122,7 @@ async def list_lab_reports(
     pages = math.ceil(total / limit) if limit > 0 else 1
 
     return LabReportListResponse(
-        items=[LabReportResponse.model_validate(r) for r in reports],
+        items=[_build_report_response(r) for r in reports],
         total=total,
         page=page,
         limit=limit,
@@ -121,7 +140,11 @@ async def get_lab_report(
     current_user: CurrentUser,
     db: DBSession,
 ):
-    result = await db.execute(select(LabReport).where(LabReport.id == report_id))
+    result = await db.execute(
+        select(LabReport)
+        .options(selectinload(LabReport.test))
+        .where(LabReport.id == report_id)
+    )
     report = result.scalar_one_or_none()
     if not report:
         raise HTTPException(status_code=404, detail="Lab report not found.")
@@ -132,7 +155,7 @@ async def get_lab_report(
         if not report.is_visible:
             raise HTTPException(status_code=403, detail="Report is not available.")
 
-    return LabReportResponse.model_validate(report)
+    return _build_report_response(report)
 
 
 @router.get(

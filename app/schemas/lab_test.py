@@ -5,10 +5,12 @@ Includes home_sampling_available and home_sampling_fee support.
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 
 from pydantic import BaseModel, Field
+
+from app.models.lab_booking import CollectionType, LabBookingStatus
 
 
 class LabTestBase(BaseModel):
@@ -67,6 +69,46 @@ class LabTestResponse(BaseModel):
 
 class LabTestListResponse(BaseModel):
     items: list[LabTestResponse]
+    total: int
+    page: int
+    limit: int
+    pages: int
+
+
+class LabBookingCreate(BaseModel):
+    branch_id: uuid.UUID
+    collection_type: CollectionType = Field(
+        default=CollectionType.clinic_visit,
+        description="'clinic_visit' or 'home_sampling'",
+    )
+    preferred_date: date = Field(..., description="Target date for sample collection")
+    time_slot: str = Field(..., max_length=50, description="'morning', 'afternoon', or 'evening'")
+    collection_address: str | None = Field(None, description="Required if collection_type is 'home_sampling'")
+    notes: str | None = Field(None, max_length=1000)
+
+
+class LabBookingResponse(BaseModel):
+    id: uuid.UUID
+    patient_id: uuid.UUID
+    test_id: uuid.UUID
+    branch_id: uuid.UUID
+    collection_type: CollectionType
+    preferred_date: date
+    time_slot: str
+    collection_address: str | None
+    notes: str | None
+    status: LabBookingStatus
+    total_price: Decimal
+    test: LabTestResponse | None = None
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class LabBookingListResponse(BaseModel):
+    items: list[LabBookingResponse]
     total: int
     page: int
     limit: int

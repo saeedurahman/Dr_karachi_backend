@@ -17,6 +17,8 @@ class LabReportResponse(BaseModel):
     id: uuid.UUID
     patient_id: uuid.UUID
     test_id: uuid.UUID | None
+    test_name: str | None = None
+    test_code: str | None = None
     appointment_id: uuid.UUID | None
     file_name: str
     file_type: ReportFileType

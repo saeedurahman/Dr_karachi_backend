@@ -9,6 +9,7 @@ from app.models.cart import CartItem
 from app.models.category import Category
 from app.models.doctor import DayOfWeek, Doctor, DoctorAvailability, DoctorBranch
 from app.models.franchise import FranchiseLead, FranchiseLeadStatus, InvestmentRange
+from app.models.lab_booking import CollectionType, LabBooking, LabBookingStatus
 from app.models.lab_report import LabReport, ReportFileType
 from app.models.lab_test import LabTest
 from app.models.notification import NotificationEvent, NotificationEventType
@@ -33,6 +34,7 @@ __all__ = [
     "BranchStock",
     "CartItem",
     "Category",
+    "CollectionType",
     "DayOfWeek",
     "Doctor",
     "DoctorAvailability",
@@ -40,6 +42,8 @@ __all__ = [
     "FranchiseLead",
     "FranchiseLeadStatus",
     "InvestmentRange",
+    "LabBooking",
+    "LabBookingStatus",
     "LabReport",
     "LabTest",
     "NotificationEvent",
