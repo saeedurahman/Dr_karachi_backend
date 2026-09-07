@@ -329,7 +329,7 @@ async def run_seed():
                 id=uuid.uuid4(),
                 full_name="Zainab Malik",
                 phone="+923009998877",
-                password_hash=hash_password("Password123!"),
+                hashed_password=hash_password("Password123!"),
                 role=UserRole.patient,
                 is_active=True,
             )
