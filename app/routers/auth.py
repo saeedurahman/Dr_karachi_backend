@@ -130,3 +130,26 @@ async def create_staff_user(body: CreateStaffUserRequest, db: DBSession):
     db.add(user)
     await db.flush()
     return UserResponse.model_validate(user)
+
+
+@router.get(
+    "/admin/users",
+    response_model=list[UserResponse],
+    summary="[Admin] List staff and doctor accounts",
+    dependencies=[require_roles(UserRole.super_admin)],
+)
+async def list_staff_users(
+    db: DBSession,
+    role: UserRole | None = None,
+):
+    from sqlalchemy import select
+    from app.models.user import User
+
+    query = select(User).where(User.deleted_at.is_(None))
+    if role:
+        query = query.where(User.role == role)
+    else:
+        query = query.where(User.role != UserRole.patient)
+    result = await db.execute(query.order_by(User.created_at.desc()))
+    return [UserResponse.model_validate(u) for u in result.scalars().all()]
+

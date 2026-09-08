@@ -37,12 +37,24 @@ class CreateStaffUserRequest(BaseModel):
     email: EmailStr | None = None
     role: UserRole = UserRole.pharmacy_staff
 
+    @field_validator("password")
+    @classmethod
+    def password_complexity(cls, v: str) -> str:
+        if len(v) < 8:
+            raise ValueError("Password must be at least 8 characters long.")
+        if not any(c.isdigit() for c in v):
+            raise ValueError("Password must contain at least one digit.")
+        if not any(c.isalpha() for c in v):
+            raise ValueError("Password must contain at least one letter.")
+        return v
+
     @field_validator("role")
     @classmethod
     def role_not_patient(cls, v: UserRole) -> UserRole:
         if v == UserRole.patient:
             raise ValueError("Use /register for patient accounts.")
         return v
+
 
 
 class UpdateProfileRequest(BaseModel):
