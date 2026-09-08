@@ -1,11 +1,11 @@
-"""
+﻿"""
 Pydantic schemas for Product and BranchStock endpoints.
 
 ProductResponse always includes three explicit price fields:
-  - original_price    → raw price (for strike-through display)
-  - discounted_price  → price after discount (what patient pays)
-  - discount_percent  → the % badge value
-  - stock_at_branch   → quantity available at the requested branch (None if no branch filter)
+  - original_price    â†’ raw price (for strike-through display)
+  - discounted_price  â†’ price after discount (what patient pays)
+  - discount_percent  â†’ the % badge value
+  - stock_at_branch   â†’ quantity available at the requested branch (None if no branch filter)
 
 Frontend never needs to recalculate anything.
 """
@@ -17,7 +17,7 @@ from decimal import Decimal
 from pydantic import BaseModel, Field
 
 
-# ── Request schemas ────────────────────────────────────────────────────────────
+# â”€â”€ Request schemas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 class ProductCreate(BaseModel):
     name: str = Field(..., min_length=2, max_length=500)
     sku: str = Field(..., min_length=1, max_length=100)
@@ -34,6 +34,7 @@ class ProductUpdate(BaseModel):
     price: Decimal | None = Field(None, gt=0)
     discount_percent: Decimal | None = Field(None, ge=0, le=100)
     category_id: uuid.UUID | None = None
+    image_url: str | None = None
     requires_prescription: bool | None = None
     is_active: bool | None = None
 
@@ -44,7 +45,7 @@ class BranchStockUpsert(BaseModel):
     stock: int = Field(..., ge=0)
 
 
-# ── Response schemas ───────────────────────────────────────────────────────────
+# â”€â”€ Response schemas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 class BranchStockInfo(BaseModel):
     branch_id: uuid.UUID
     stock: int
@@ -55,7 +56,7 @@ class BranchStockInfo(BaseModel):
 class ProductResponse(BaseModel):
     """
     Full product response with explicit price breakdown for frontend display.
-    No frontend calculation needed — all three values are pre-computed.
+    No frontend calculation needed â€” all three values are pre-computed.
     """
     id: uuid.UUID
     name: str
@@ -63,12 +64,12 @@ class ProductResponse(BaseModel):
     description: str | None
     category_id: uuid.UUID | None
 
-    # ── Explicit price fields ─────────────────────────────────────────────────
+    # â”€â”€ Explicit price fields â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     original_price: Decimal        # strike-through display
     discount_percent: Decimal      # "X% OFF" badge
     discounted_price: Decimal      # actual price patient pays
 
-    # ── Stock ─────────────────────────────────────────────────────────────────
+    # â”€â”€ Stock â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     # populated only when branch_id filter was used
     stock_at_branch: int | None = None
 

@@ -1,10 +1,10 @@
-"""
-Checkout service — converts a validated cart into an Order.
+﻿"""
+Checkout service â€” converts a validated cart into an Order.
 
 Critical behaviors:
 1. Uses calculate_order_total() from order_service (never duplicates math)
 2. Acquires a SELECT ... FOR UPDATE row-level lock on each branch_stock row
-   before decrementing — prevents overselling under concurrent requests
+   before decrementing â€” prevents overselling under concurrent requests
 3. Emits order_placed notification event after successful commit
 4. Clears cart after successful order creation
 """
@@ -41,7 +41,7 @@ class CheckoutService:
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
 
-    # ── Checkout ───────────────────────────────────────────────────────────────
+    # â”€â”€ Checkout â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     async def checkout(self, user: User, body: CheckoutRequest) -> OrderResponse:
         """
         Convert the patient's cart into a confirmed Order.
@@ -157,9 +157,9 @@ class CheckoutService:
         # on session close and both checkouts can succeed (oversell).
         await self.db.commit()
 
-        return self._build_response(order, order_item_models)
+        return self._build_response(order, order_item_models, patient=user)
 
-    # ── Update order status ────────────────────────────────────────────────────
+    # â”€â”€ Update order status â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     async def update_status(
         self, order_id: uuid.UUID, body: OrderStatusUpdate, actor: User
     ) -> OrderResponse:
@@ -198,9 +198,10 @@ class CheckoutService:
             select(OrderItem).where(OrderItem.order_id == order.id)
         )
         items = items_result.scalars().all()
-        return self._build_response(order, items)
+        patient = await self.db.get(User, order.patient_id)
+        return self._build_response(order, items, patient=patient)
 
-    # ── Helpers ────────────────────────────────────────────────────────────────
+    # â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     async def _lock_and_validate_stock(
         self,
         cart_items: list[CartItem],
@@ -208,7 +209,7 @@ class CheckoutService:
     ) -> dict[uuid.UUID, dict]:
         """
         Acquire row-level locks on branch_stock rows and validate quantities.
-        Returns a dict keyed by product_id → {product, branch_stock}.
+        Returns a dict keyed by product_id â†’ {product, branch_stock}.
 
         Deadlock Prevention:
           Sorts cart items by product_id BEFORE acquiring row-level locks
@@ -229,7 +230,7 @@ class CheckoutService:
                     BranchStock.product_id == ci.product_id,
                     BranchStock.branch_id == branch_id,
                 )
-                .with_for_update()  # ← row-level lock
+                .with_for_update()  # â†گ row-level lock
             )
             bs = bs_result.scalar_one_or_none()
 
@@ -255,10 +256,12 @@ class CheckoutService:
         return locked
 
     @staticmethod
-    def _build_response(order: Order, items: list[OrderItem]) -> OrderResponse:
+    def _build_response(order: Order, items: list[OrderItem], patient: User | None = None) -> OrderResponse:
         return OrderResponse(
             id=order.id,
             patient_id=order.patient_id,
+            patient_name=patient.full_name if patient else None,
+            patient_phone=patient.phone if patient else None,
             branch_id=order.branch_id,
             status=order.status,
             payment_method=order.payment_method,

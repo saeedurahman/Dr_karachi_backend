@@ -1,33 +1,41 @@
-"""
-Cart router — /api/v1/pharmacy/cart
-Order router — /api/v1/pharmacy/orders
+﻿"""
+Cart router -- /api/v1/pharmacy/cart
+Order router -- /api/v1/pharmacy/orders
 
 Cart endpoints:
-  GET    /cart            → full cart with totals preview
-  POST   /cart/items      → add item (enforces single-branch rule)
-  PUT    /cart/items/{id} → update quantity
-  DELETE /cart/items/{id} → remove item
-  DELETE /cart            → clear entire cart
+  GET    /cart            -- full cart with totals preview
+  POST   /cart/items      -- add item (enforces single-branch rule)
+  PUT    /cart/items/{id} -- update quantity
+  DELETE /cart/items/{id} -- remove item
+  DELETE /cart            -- clear entire cart
 
   On branch mismatch, returns 409 with BranchSwitchWarning body.
   Patient must call DELETE /cart first, then re-add with new branch.
 
 Order endpoints:
-  POST /orders            → checkout (patient)
-  GET  /orders            → list orders (patient=own, admin=all)
-  GET  /orders/{id}       → detail
-  PUT  /orders/{id}/status → update lifecycle status (staff/admin)
+  POST /orders            -- checkout (patient)
+  GET  /orders            -- list orders (patient=own, admin=all)
+  GET  /orders/{id}       -- detail
+  PUT  /orders/{id}/status -- update lifecycle status (staff/admin)
+
+Admin-only query params on GET /orders:
+  ?order_status=          -- filter by OrderStatus enum value
+  ?branch_id=             -- filter by fulfilling branch UUID
+  ?search=                -- ilike match on patient full_name or phone
+  ?date_from=             -- ISO date lower bound (inclusive) on created_at
+  ?date_to=               -- ISO date upper bound (inclusive) on created_at
 """
 from __future__ import annotations
 
 import uuid
+from datetime import date, datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import func, or_, select
 
 from app.dependencies import CurrentUser, DBSession, require_roles
 from app.models.order import Order, OrderItem, OrderStatus
-from app.models.user import UserRole
+from app.models.user import User, UserRole
 from app.schemas.cart_order import (
     BranchSwitchWarning,
     CartItemAdd,
@@ -41,13 +49,13 @@ from app.services.cart_service import BranchMismatchError, CartService
 from app.services.checkout_service import CheckoutService
 from app.utils.pagination import PagedResponse, PaginationParams, pagination_params
 
-cart_router = APIRouter(prefix="/cart", tags=["Pharmacy — Cart"])
-order_router = APIRouter(prefix="/orders", tags=["Pharmacy — Orders"])
+cart_router = APIRouter(prefix="/cart", tags=["Pharmacy -- Cart"])
+order_router = APIRouter(prefix="/orders", tags=["Pharmacy -- Orders"])
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ---------------------------------------------------------------------------
 # CART
-# ═══════════════════════════════════════════════════════════════════════════════
+# ---------------------------------------------------------------------------
 @cart_router.get(
     "",
     response_model=CartResponse,
@@ -70,7 +78,7 @@ async def add_cart_item(body: CartItemAdd, current_user: CurrentUser, db: DBSess
     If the cart already has a different branch selected, returns:
       409 Conflict + BranchSwitchWarning body
     Frontend should prompt: "Clear cart and switch to Branch X?"
-    On confirm: DELETE /cart → then re-POST /cart/items
+    On confirm: DELETE /cart -- then re-POST /cart/items
     """
     svc = CartService(db)
     try:
@@ -131,14 +139,14 @@ async def clear_cart(current_user: CurrentUser, db: DBSession):
     await svc.clear_cart(current_user.id)
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ---------------------------------------------------------------------------
 # ORDERS
-# ═══════════════════════════════════════════════════════════════════════════════
+# ---------------------------------------------------------------------------
 @order_router.post(
     "",
     response_model=OrderResponse,
     status_code=status.HTTP_201_CREATED,
-    summary="Checkout — convert cart to order (with stock lock)",
+    summary="Checkout -- convert cart to order (with stock lock)",
 )
 async def checkout(body: CheckoutRequest, current_user: CurrentUser, db: DBSession):
     """
@@ -165,14 +173,41 @@ async def list_orders(
     db: DBSession,
     params: PaginationParams = Depends(pagination_params),
     order_status: OrderStatus | None = None,
+    branch_id: uuid.UUID | None = None,
+    search: str | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
 ):
-    from sqlalchemy import func
+    """
+    Admin/staff filters (ignored for patients):
+      ?order_status=  -- OrderStatus enum value
+      ?branch_id=     -- fulfilling branch UUID
+      ?search=        -- ilike on patient full_name or phone
+      ?date_from=     -- ISO date, inclusive lower bound on created_at
+      ?date_to=       -- ISO date, inclusive upper bound on created_at
+    """
+    # Join User so we can filter by patient name/phone and include in response
+    query = select(Order, User).join(User, Order.patient_id == User.id)
 
-    query = select(Order)
-
-    # Patients see only their own orders
+    # Patients see only their own orders; ignore admin filters
     if current_user.role == UserRole.patient:
         query = query.where(Order.patient_id == current_user.id)
+    else:
+        # Admin/staff filters
+        if branch_id:
+            query = query.where(Order.branch_id == branch_id)
+        if search:
+            term = f"%{search}%"
+            query = query.where(
+                or_(User.full_name.ilike(term), User.phone.ilike(term))
+            )
+        if date_from:
+            dt_from = datetime(date_from.year, date_from.month, date_from.day, tzinfo=timezone.utc)
+            query = query.where(Order.created_at >= dt_from)
+        if date_to:
+            # include the entire day_to
+            dt_to = datetime(date_to.year, date_to.month, date_to.day, 23, 59, 59, tzinfo=timezone.utc)
+            query = query.where(Order.created_at <= dt_to)
 
     if order_status:
         query = query.where(Order.status == order_status)
@@ -187,15 +222,15 @@ async def list_orders(
         .offset(params.offset)
         .limit(params.page_size)
     )
-    orders = result.scalars().all()
+    rows = result.all()  # list of (Order, User) tuples
 
     responses = []
-    for order in orders:
+    for order, patient in rows:
         items_result = await db.execute(
             select(OrderItem).where(OrderItem.order_id == order.id)
         )
         items = items_result.scalars().all()
-        responses.append(CheckoutService._build_response(order, items))
+        responses.append(CheckoutService._build_response(order, items, patient=patient))
 
     return PagedResponse.create(responses, total, params)
 
@@ -206,10 +241,16 @@ async def list_orders(
     summary="Get order detail",
 )
 async def get_order(order_id: uuid.UUID, current_user: CurrentUser, db: DBSession):
-    result = await db.execute(select(Order).where(Order.id == order_id))
-    order = result.scalar_one_or_none()
-    if not order:
+    # Join patient for name/phone in response
+    result = await db.execute(
+        select(Order, User).join(User, Order.patient_id == User.id)
+        .where(Order.id == order_id)
+    )
+    row = result.one_or_none()
+    if not row:
         raise HTTPException(status_code=404, detail="Order not found.")
+
+    order, patient = row
 
     # Patients can only see their own orders
     if current_user.role == UserRole.patient and order.patient_id != current_user.id:
@@ -217,7 +258,7 @@ async def get_order(order_id: uuid.UUID, current_user: CurrentUser, db: DBSessio
 
     items_result = await db.execute(select(OrderItem).where(OrderItem.order_id == order.id))
     items = items_result.scalars().all()
-    return CheckoutService._build_response(order, items)
+    return CheckoutService._build_response(order, items, patient=patient)
 
 
 @order_router.put(
@@ -240,9 +281,9 @@ async def update_order_status(
 ):
     """
     Updates order status following the allowed transition table:
-      pending → confirmed → processing → out_for_delivery → delivered
-                                       ↘ cancelled
-      delivered → refunded
+      pending -> confirmed -> processing -> out_for_delivery -> delivered
+                                       -> cancelled
+      delivered -> refunded
 
     Invalid transitions return 400 with allowed next states.
     """

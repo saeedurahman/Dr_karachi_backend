@@ -1,10 +1,10 @@
-"""
-Products router — /api/v1/pharmacy/products
+﻿"""
+Products router â€” /api/v1/pharmacy/products
 
 Key behaviors:
 - ?branch_id=  filter returns stock_at_branch from branch_stock
 - All responses include original_price, discounted_price, discount_percent
-  (frontend never calculates — just renders)
+  (frontend never calculates â€” just renders)
 - Soft-delete: product stays in DB, removed from listings
 - Stock management: staff upserts into branch_stock (not product.stock)
 """
@@ -26,7 +26,7 @@ from app.schemas.product import (
 )
 from app.utils.pagination import PagedResponse, PaginationParams, pagination_params
 
-router = APIRouter(prefix="/products", tags=["Pharmacy — Products"])
+router = APIRouter(prefix="/products", tags=["Pharmacy â€” Products"])
 
 
 def _product_response(product: Product, stock: int | None = None) -> ProductResponse:
@@ -45,17 +45,17 @@ async def list_products(
     category_id: uuid.UUID | None = None,
     search: str | None = None,
     in_stock_only: bool = False,
+    include_inactive: bool = False,
 ):
     """
-    ?branch_id    → returns stock_at_branch field, filters out-of-stock if in_stock_only=true
-    ?category_id  → filter by category
-    ?search       → name/sku ilike search
-    ?in_stock_only → only return products with stock > 0 at selected branch
+    ?branch_id    â†’ returns stock_at_branch field, filters out-of-stock if in_stock_only=true
+    ?category_id  â†’ filter by category
+    ?search       â†’ name/sku ilike search
+    ?in_stock_only â†’ only return products with stock > 0 at selected branch
     """
-    query = select(Product).where(
-        Product.deleted_at.is_(None),
-        Product.is_active == True,
-    )
+    query = select(Product).where(Product.deleted_at.is_(None))
+    if not include_inactive:
+        query = query.where(Product.is_active == True)
 
     if category_id:
         query = query.where(Product.category_id == category_id)
@@ -83,7 +83,7 @@ async def list_products(
     )
     products = result.scalars().all()
 
-    # Build responses — fetch stock per-product if branch_id provided
+    # Build responses â€” fetch stock per-product if branch_id provided
     responses: list[ProductResponse] = []
     for p in products:
         stock_qty: int | None = None
@@ -209,7 +209,7 @@ async def delete_product(product_id: uuid.UUID, db: DBSession):
 async def upsert_branch_stock(product_id: uuid.UUID, body: BranchStockUpsert, db: DBSession):
     """
     Upserts (create or update) the branch_stock record.
-    This is the only way to modify stock — no direct product.stock field exists.
+    This is the only way to modify stock â€” no direct product.stock field exists.
     """
     result = await db.execute(
         select(BranchStock).where(

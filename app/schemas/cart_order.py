@@ -1,4 +1,4 @@
-"""
+﻿"""
 Pydantic schemas for Cart and Order endpoints.
 """
 from __future__ import annotations
@@ -12,13 +12,13 @@ from pydantic import BaseModel, Field
 from app.models.order import OrderStatus, PaymentMethod
 
 
-# ─────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # CART
-# ─────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 class CartItemAdd(BaseModel):
     product_id: uuid.UUID
     quantity: int = Field(1, ge=1, le=100)
-    branch_id: uuid.UUID  # required — enforces single-branch rule
+    branch_id: uuid.UUID  # required â€” enforces single-branch rule
 
 
 class CartItemUpdate(BaseModel):
@@ -34,7 +34,7 @@ class CartItemResponse(BaseModel):
     original_price: Decimal
     discount_percent: Decimal
     discounted_price: Decimal
-    line_total: Decimal          # discounted_price × quantity
+    line_total: Decimal          # discounted_price أ— quantity
     stock_at_branch: int         # live stock check from branch_stock
 
     model_config = {"from_attributes": False}
@@ -59,9 +59,9 @@ class BranchSwitchWarning(BaseModel):
     requested_branch_id: uuid.UUID
 
 
-# ─────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # ORDERS
-# ─────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 class CheckoutRequest(BaseModel):
     delivery_method: str = Field("delivery", pattern="^(delivery|pickup)$")
     delivery_address: str | None = None
@@ -93,6 +93,8 @@ class OrderItemResponse(BaseModel):
 class OrderResponse(BaseModel):
     id: uuid.UUID
     patient_id: uuid.UUID
+    patient_name: str | None = None
+    patient_phone: str | None = None
     branch_id: uuid.UUID | None
     status: OrderStatus
     payment_method: PaymentMethod
