@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import math
 import uuid
-from datetime import date, datetime, time, timedelta, timezone
+from datetime import date as date_cls, datetime, time, timedelta, timezone
 
 from fastapi import APIRouter, HTTPException, Query, status
 from sqlalchemy import func, select
@@ -46,7 +46,7 @@ async def get_doctor_slots(
     db: DBSession = None,
 ):
     try:
-        target_date = date.fromisoformat(slot_date)
+        target_date = date_cls.fromisoformat(slot_date)
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD.")
 
@@ -118,24 +118,24 @@ async def list_appointments(
     tz_utc = timezone.utc
     if date:
         try:
-            target_d = date.fromisoformat(date) if isinstance(date, str) else date
+            target_d = date_cls.fromisoformat(date)
             day_start = datetime.combine(target_d, time.min).replace(tzinfo=tz_utc)
             day_end = day_start + timedelta(days=1)
             query = query.where(Appointment.slot_datetime >= day_start, Appointment.slot_datetime < day_end)
-        except ValueError:
+        except Exception:
             pass
     else:
         if date_from:
             try:
-                df = date.fromisoformat(date_from) if isinstance(date_from, str) else date_from
+                df = date_cls.fromisoformat(date_from)
                 query = query.where(Appointment.slot_datetime >= datetime.combine(df, time.min).replace(tzinfo=tz_utc))
-            except ValueError:
+            except Exception:
                 pass
         if date_to:
             try:
-                dt = date.fromisoformat(date_to) if isinstance(date_to, str) else date_to
+                dt = date_cls.fromisoformat(date_to)
                 query = query.where(Appointment.slot_datetime < datetime.combine(dt + timedelta(days=1), time.min).replace(tzinfo=tz_utc))
-            except ValueError:
+            except Exception:
                 pass
 
     # Count
