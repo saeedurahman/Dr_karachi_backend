@@ -6,7 +6,7 @@ from datetime import UTC, datetime, timedelta
 from datetime import date as Date
 
 from fastapi import APIRouter, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import selectinload
 
 from app.config import settings
