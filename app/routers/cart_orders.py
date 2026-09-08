@@ -164,7 +164,7 @@ async def checkout(body: CheckoutRequest, current_user: CurrentUser, db: DBSessi
 
 
 @order_router.get(
-    "",
+    "/",
     response_model=PagedResponse[OrderResponse],
     summary="List orders (patient=own | admin/staff=all)",
 )
