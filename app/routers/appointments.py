@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import math
 import uuid
-from datetime import date
+from datetime import date, datetime, time, timedelta, timezone
 
 from fastapi import APIRouter, HTTPException, Query, status
 from sqlalchemy import func, select
@@ -80,12 +80,16 @@ async def list_appointments(
     status_filter: AppointmentStatus | None = Query(None, alias="status"),
     branch_id: uuid.UUID | None = None,
     doctor_id: uuid.UUID | None = None,
+    date: str | None = Query(None, regex=r"^\d{4}-\d{2}-\d{2}$", description="Target date (YYYY-MM-DD)"),
+    date_from: str | None = Query(None, regex=r"^\d{4}-\d{2}-\d{2}$", description="Start date (YYYY-MM-DD)"),
+    date_to: str | None = Query(None, regex=r"^\d{4}-\d{2}-\d{2}$", description="End date (YYYY-MM-DD)"),
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
 ):
     query = (
         select(Appointment)
         .options(
+            selectinload(Appointment.patient),
             selectinload(Appointment.doctor).selectinload(Doctor.user),
             selectinload(Appointment.branch),
         )
@@ -110,6 +114,29 @@ async def list_appointments(
         query = query.where(Appointment.branch_id == branch_id)
     if doctor_id and current_user.role != UserRole.doctor:
         query = query.where(Appointment.doctor_id == doctor_id)
+
+    tz_utc = timezone.utc
+    if date:
+        try:
+            target_d = date.fromisoformat(date) if isinstance(date, str) else date
+            day_start = datetime.combine(target_d, time.min).replace(tzinfo=tz_utc)
+            day_end = day_start + timedelta(days=1)
+            query = query.where(Appointment.slot_datetime >= day_start, Appointment.slot_datetime < day_end)
+        except ValueError:
+            pass
+    else:
+        if date_from:
+            try:
+                df = date.fromisoformat(date_from) if isinstance(date_from, str) else date_from
+                query = query.where(Appointment.slot_datetime >= datetime.combine(df, time.min).replace(tzinfo=tz_utc))
+            except ValueError:
+                pass
+        if date_to:
+            try:
+                dt = date.fromisoformat(date_to) if isinstance(date_to, str) else date_to
+                query = query.where(Appointment.slot_datetime < datetime.combine(dt + timedelta(days=1), time.min).replace(tzinfo=tz_utc))
+            except ValueError:
+                pass
 
     # Count
     count_query = select(func.count()).select_from(query.subquery())
@@ -149,6 +176,7 @@ async def get_appointment(
         select(Appointment)
         .where(Appointment.id == appointment_id)
         .options(
+            selectinload(Appointment.patient),
             selectinload(Appointment.doctor).selectinload(Doctor.user),
             selectinload(Appointment.branch),
         )

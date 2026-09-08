@@ -98,3 +98,18 @@ class SlotResponse(BaseModel):
     slot_datetime: datetime
     is_available: bool
 
+
+
+class BatchAvailabilityItem(BaseModel):
+    day_of_week: DayOfWeek
+    start_time: time
+    end_time: time
+
+    def validate_times(self) -> None:
+        if self.end_time <= self.start_time:
+            raise ValueError('end_time must be after start_time')
+
+
+class BatchAvailabilityUpdate(BaseModel):
+    branch_id: uuid.UUID
+    slots: list[BatchAvailabilityItem]

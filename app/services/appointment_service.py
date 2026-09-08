@@ -31,6 +31,7 @@ from app.schemas.appointment import (
     AppointmentStatusUpdate,
     BranchSummary,
     DoctorSummary,
+    PatientSummary,
     SlotResponse,
 )
 from app.services.notification_service import emit_event
@@ -227,6 +228,7 @@ class AppointmentService:
 
         # Commit so the doctor/slot locks are held until the booking is durable.
         await self.db.commit()
+        appointment.patient = patient
 
         return self._build_response(appointment, doctor, branch)
 
@@ -241,6 +243,7 @@ class AppointmentService:
             select(Appointment)
             .where(Appointment.id == appointment_id)
             .options(
+                selectinload(Appointment.patient),
                 selectinload(Appointment.doctor).selectinload(Doctor.user),
                 selectinload(Appointment.branch),
             )
@@ -306,6 +309,7 @@ class AppointmentService:
             )
 
         await self.db.commit()
+        appointment.patient = patient
 
         return self._build_response(appointment, doctor, branch)
 
@@ -334,6 +338,16 @@ class AppointmentService:
                 address=branch.address,
             )
 
+        patient_summary = None
+        patient = getattr(appointment, 'patient', None)
+        if patient:
+            patient_summary = PatientSummary(
+                id=patient.id,
+                full_name=patient.full_name,
+                phone=patient.phone,
+                email=patient.email,
+            )
+
         return AppointmentResponse(
             id=appointment.id,
             patient_id=appointment.patient_id,
@@ -343,6 +357,7 @@ class AppointmentService:
             status=appointment.status,
             notes=appointment.notes,
             cancellation_reason=appointment.cancellation_reason,
+            patient=patient_summary,
             doctor=doc_summary,
             branch=branch_summary,
             created_at=appointment.created_at,

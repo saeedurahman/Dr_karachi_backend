@@ -55,6 +55,16 @@ class BranchSummary(BaseModel):
         from_attributes = True
 
 
+class PatientSummary(BaseModel):
+    id: uuid.UUID
+    full_name: str
+    phone: str
+    email: str | None = None
+
+    class Config:
+        from_attributes = True
+
+
 class AppointmentResponse(BaseModel):
     id: uuid.UUID
     patient_id: uuid.UUID
@@ -64,6 +74,7 @@ class AppointmentResponse(BaseModel):
     status: AppointmentStatus
     notes: str | None
     cancellation_reason: str | None
+    patient: PatientSummary | None = None
     doctor: DoctorSummary | None = None
     branch: BranchSummary | None = None
     created_at: datetime

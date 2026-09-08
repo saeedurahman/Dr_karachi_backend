@@ -15,6 +15,7 @@ from app.models.appointment import Appointment, AppointmentStatus
 from app.models.doctor import DayOfWeek, Doctor, DoctorAvailability, DoctorBranch
 from app.models.user import UserRole
 from app.schemas.doctor import (
+    BatchAvailabilityUpdate,
     AvailabilityCreate,
     AvailabilityResponse,
     BranchSummary,
@@ -61,15 +62,18 @@ async def list_doctors(
     db: DBSession,
     branch_id: uuid.UUID | None = None,
     specialization: str | None = None,
+    include_inactive: bool = False,
 ):
     query = (
         select(Doctor)
-        .where(Doctor.deleted_at.is_(None), Doctor.is_active == True)
+        .where(Doctor.deleted_at.is_(None))
         .options(
             selectinload(Doctor.user),
             selectinload(Doctor.doctor_branches).selectinload(DoctorBranch.branch),
         )
     )
+    if not include_inactive:
+        query = query.where(Doctor.is_active == True)
     if specialization:
         query = query.where(Doctor.specialization.ilike(f"%{specialization}%"))
     if branch_id:
@@ -176,7 +180,16 @@ async def create_doctor(body: DoctorCreate, db: DBSession):
     doctor = Doctor(**body.model_dump())
     db.add(doctor)
     await db.flush()
-    return DoctorResponse.model_validate(doctor)
+    res = await db.execute(
+        select(Doctor)
+        .where(Doctor.id == doctor.id)
+        .options(
+            selectinload(Doctor.user),
+            selectinload(Doctor.doctor_branches).selectinload(DoctorBranch.branch),
+        )
+    )
+    loaded = res.scalar_one()
+    return _build_doctor_response(loaded)
 
 
 @router.put(
@@ -203,7 +216,17 @@ async def update_doctor(
 
     for field, value in body.model_dump(exclude_none=True).items():
         setattr(doctor, field, value)
-    return DoctorResponse.model_validate(doctor)
+    await db.flush()
+    res = await db.execute(
+        select(Doctor)
+        .where(Doctor.id == doctor.id)
+        .options(
+            selectinload(Doctor.user),
+            selectinload(Doctor.doctor_branches).selectinload(DoctorBranch.branch),
+        )
+    )
+    loaded = res.scalar_one()
+    return _build_doctor_response(loaded)
 
 
 @router.delete(
@@ -256,3 +279,69 @@ async def set_availability(
     db.add(avail)
     await db.flush()
     return AvailabilityResponse.model_validate(avail)
+
+
+@router.get(
+    "/{doctor_id}/availability",
+    response_model=list[AvailabilityResponse],
+    summary="[Admin/Doctor] Get doctor availability schedule",
+    dependencies=[require_roles(UserRole.super_admin, UserRole.branch_manager, UserRole.doctor)],
+)
+async def get_doctor_availability(
+    doctor_id: uuid.UUID,
+    db: DBSession,
+    branch_id: uuid.UUID | None = None,
+):
+    query = select(DoctorAvailability).where(
+        DoctorAvailability.doctor_id == doctor_id,
+        DoctorAvailability.is_active == True,
+    )
+    if branch_id:
+        query = query.where(DoctorAvailability.branch_id == branch_id)
+    result = await db.execute(
+        query.order_by(DoctorAvailability.day_of_week, DoctorAvailability.start_time)
+    )
+    return [AvailabilityResponse.model_validate(a) for a in result.scalars().all()]
+
+
+@router.put(
+    "/{doctor_id}/availability",
+    response_model=list[AvailabilityResponse],
+    summary="[Admin/Doctor] Set weekly availability schedule for a branch",
+    dependencies=[require_roles(UserRole.super_admin, UserRole.branch_manager, UserRole.doctor)],
+)
+async def update_doctor_availability(
+    doctor_id: uuid.UUID,
+    body: BatchAvailabilityUpdate,
+    current_user: CurrentUser,
+    db: DBSession,
+):
+    # Role check: doctor can only update own availability
+    if current_user.role == UserRole.doctor:
+        doc_res = await db.execute(select(Doctor.id).where(Doctor.user_id == current_user.id))
+        if doc_res.scalar_one_or_none() != doctor_id:
+            raise HTTPException(status_code=403, detail="Forbidden.")
+
+    # Delete existing active availability for this doctor and branch
+    await db.execute(
+        delete(DoctorAvailability).where(
+            DoctorAvailability.doctor_id == doctor_id,
+            DoctorAvailability.branch_id == body.branch_id,
+        )
+    )
+
+    new_slots = []
+    for slot in body.slots:
+        slot.validate_times()
+        avail = DoctorAvailability(
+            doctor_id=doctor_id,
+            branch_id=body.branch_id,
+            day_of_week=slot.day_of_week,
+            start_time=slot.start_time,
+            end_time=slot.end_time,
+        )
+        db.add(avail)
+        new_slots.append(avail)
+
+    await db.flush()
+    return [AvailabilityResponse.model_validate(a) for a in new_slots]
