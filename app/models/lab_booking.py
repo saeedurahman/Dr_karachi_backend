@@ -33,6 +33,16 @@ class LabBookingStatus(str, enum.Enum):
     cancelled = "cancelled"
 
 
+# ── Valid status transitions (enforced by the admin bookings router) ──────────
+VALID_BOOKING_STATUS_TRANSITIONS: dict[LabBookingStatus, set[LabBookingStatus]] = {
+    LabBookingStatus.pending: {LabBookingStatus.confirmed, LabBookingStatus.cancelled},
+    LabBookingStatus.confirmed: {LabBookingStatus.sample_collected, LabBookingStatus.cancelled},
+    LabBookingStatus.sample_collected: {LabBookingStatus.completed, LabBookingStatus.cancelled},
+    LabBookingStatus.completed: set(),
+    LabBookingStatus.cancelled: set(),
+}
+
+
 class LabBooking(TimestampMixin, Base):
     __tablename__ = "lab_bookings"
     __table_args__ = (

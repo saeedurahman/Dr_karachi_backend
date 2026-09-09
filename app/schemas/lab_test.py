@@ -113,3 +113,30 @@ class LabBookingListResponse(BaseModel):
     page: int
     limit: int
     pages: int
+
+
+class LabBookingAdminResponse(LabBookingResponse):
+    patient_name: str | None = None
+    patient_phone: str | None = None
+    branch_name: str | None = None
+
+
+class LabBookingAdminListResponse(BaseModel):
+    items: list[LabBookingAdminResponse]
+    total: int
+    page: int
+    limit: int
+    pages: int
+
+
+class LabBookingStatusUpdate(BaseModel):
+    status: LabBookingStatus
+
+
+class PatientSearchResult(BaseModel):
+    id: uuid.UUID
+    full_name: str
+    phone: str
+
+    class Config:
+        from_attributes = True

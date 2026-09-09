@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import math
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from decimal import Decimal
 
 from fastapi import APIRouter, HTTPException, Query, status
@@ -21,18 +21,27 @@ from sqlalchemy.orm import selectinload
 
 from app.dependencies import CurrentUser, DBSession, require_roles
 from app.models.branch import Branch
-from app.models.lab_booking import CollectionType, LabBooking, LabBookingStatus
+from app.models.lab_booking import (
+    VALID_BOOKING_STATUS_TRANSITIONS,
+    CollectionType,
+    LabBooking,
+    LabBookingStatus,
+)
 from app.models.lab_test import LabTest
 from app.models.notification import NotificationEventType
-from app.models.user import UserRole
+from app.models.user import User, UserRole
 from app.schemas.lab_test import (
+    LabBookingAdminListResponse,
+    LabBookingAdminResponse,
     LabBookingCreate,
     LabBookingListResponse,
     LabBookingResponse,
+    LabBookingStatusUpdate,
     LabTestCreate,
     LabTestListResponse,
     LabTestResponse,
     LabTestUpdate,
+    PatientSearchResult,
 )
 from app.services.notification_service import emit_event
 
@@ -49,13 +58,13 @@ async def list_lab_tests(
     branch_id: uuid.UUID | None = Query(None, description="Filter by branch ID or universal tests"),
     home_sampling_only: bool = Query(False, description="Only tests offering home sampling"),
     search: str | None = Query(None, min_length=1, description="Search by name or code"),
+    include_inactive: bool = Query(False, description="Include inactive tests (admin use)"),
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
 ):
-    query = select(LabTest).where(
-        LabTest.is_active.is_(True),
-        LabTest.deleted_at.is_(None),
-    )
+    query = select(LabTest).where(LabTest.deleted_at.is_(None))
+    if not include_inactive:
+        query = query.where(LabTest.is_active.is_(True))
 
     if branch_id:
         # Show universal tests (branch_id IS NULL) + branch-specific tests
@@ -88,6 +97,90 @@ async def list_lab_tests(
 
     return LabTestListResponse(
         items=[LabTestResponse.model_validate(t) for t in items],
+        total=total,
+        page=page,
+        limit=limit,
+        pages=pages,
+    )
+
+
+def _build_booking_admin_response(
+    booking: LabBooking, patient: User, branch: Branch
+) -> LabBookingAdminResponse:
+    return LabBookingAdminResponse(
+        id=booking.id,
+        patient_id=booking.patient_id,
+        test_id=booking.test_id,
+        branch_id=booking.branch_id,
+        collection_type=booking.collection_type,
+        preferred_date=booking.preferred_date,
+        time_slot=booking.time_slot,
+        collection_address=booking.collection_address,
+        notes=booking.notes,
+        status=booking.status,
+        total_price=booking.total_price,
+        test=LabTestResponse.model_validate(booking.test) if booking.test else None,
+        created_at=booking.created_at,
+        updated_at=booking.updated_at,
+        patient_name=patient.full_name,
+        patient_phone=patient.phone,
+        branch_name=branch.name,
+    )
+
+
+@router.get(
+    "/bookings",
+    response_model=LabBookingAdminListResponse,
+    summary="[Admin/Lab Staff] List all lab bookings (filterable)",
+    dependencies=[require_roles(UserRole.super_admin, UserRole.branch_manager, UserRole.lab_staff)],
+)
+async def list_lab_bookings_admin(
+    db: DBSession,
+    status_filter: LabBookingStatus | None = Query(None, alias="status"),
+    branch_id: uuid.UUID | None = None,
+    collection_type: CollectionType | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    page: int = Query(1, ge=1),
+    limit: int = Query(20, ge=1, le=100),
+):
+    # Registered ahead of GET /{test_id} below: both are single-segment paths
+    # ("/bookings" vs "/{test_id}"), and FastAPI/Starlette matches routes in
+    # registration order, not by specificity -- if this were registered after
+    # /{test_id}, "/bookings" would be swallowed by it and 422 on UUID parsing.
+    query = (
+        select(LabBooking, User, Branch)
+        .join(User, LabBooking.patient_id == User.id)
+        .join(Branch, LabBooking.branch_id == Branch.id)
+        .options(selectinload(LabBooking.test))
+    )
+    if status_filter:
+        query = query.where(LabBooking.status == status_filter)
+    if branch_id:
+        query = query.where(LabBooking.branch_id == branch_id)
+    if collection_type:
+        query = query.where(LabBooking.collection_type == collection_type)
+    if date_from:
+        query = query.where(LabBooking.preferred_date >= date_from)
+    if date_to:
+        query = query.where(LabBooking.preferred_date <= date_to)
+
+    count_query = select(func.count()).select_from(query.subquery())
+    total_result = await db.execute(count_query)
+    total = total_result.scalar_one()
+
+    offset = (page - 1) * limit
+    result = await db.execute(
+        query.order_by(LabBooking.preferred_date.desc(), LabBooking.created_at.desc())
+        .offset(offset)
+        .limit(limit)
+    )
+    rows = result.all()  # (LabBooking, User, Branch) tuples
+
+    pages = math.ceil(total / limit) if limit > 0 else 1
+
+    return LabBookingAdminListResponse(
+        items=[_build_booking_admin_response(b, patient, branch) for b, patient, branch in rows],
         total=total,
         page=page,
         limit=limit,
@@ -348,3 +441,67 @@ async def list_my_lab_bookings(
         limit=limit,
         pages=pages,
     )
+
+
+
+@router.put(
+    "/bookings/{booking_id}/status",
+    response_model=LabBookingAdminResponse,
+    summary="[Admin/Lab Staff] Update lab booking status",
+    dependencies=[require_roles(UserRole.super_admin, UserRole.branch_manager, UserRole.lab_staff)],
+)
+async def update_lab_booking_status(
+    booking_id: uuid.UUID,
+    body: LabBookingStatusUpdate,
+    db: DBSession,
+):
+    result = await db.execute(
+        select(LabBooking, User, Branch)
+        .join(User, LabBooking.patient_id == User.id)
+        .join(Branch, LabBooking.branch_id == Branch.id)
+        .options(selectinload(LabBooking.test))
+        .where(LabBooking.id == booking_id)
+    )
+    row = result.one_or_none()
+    if not row:
+        raise HTTPException(status_code=404, detail="Lab booking not found.")
+    booking, patient, branch = row
+
+    allowed = VALID_BOOKING_STATUS_TRANSITIONS.get(booking.status, set())
+    if body.status not in allowed:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Cannot transition from '{booking.status.value}' to '{body.status.value}'. "
+                f"Allowed: {[s.value for s in allowed] or 'none'}."
+            ),
+        )
+    booking.status = body.status
+    await db.flush()
+
+    return _build_booking_admin_response(booking, patient, branch)
+
+
+@router.get(
+    "/patients/search",
+    response_model=list[PatientSearchResult],
+    summary="[Admin/Lab Staff] Search patients by name or phone (for report upload)",
+    dependencies=[require_roles(UserRole.super_admin, UserRole.branch_manager, UserRole.lab_staff)],
+)
+async def search_patients(
+    db: DBSession,
+    q: str = Query(..., min_length=2),
+):
+    term = f"%{q.strip()}%"
+    result = await db.execute(
+        select(User)
+        .where(
+            User.role == UserRole.patient,
+            User.deleted_at.is_(None),
+            or_(User.full_name.ilike(term), User.phone.ilike(term)),
+        )
+        .order_by(User.full_name.asc())
+        .limit(15)
+    )
+    patients = result.scalars().all()
+    return [PatientSearchResult.model_validate(p) for p in patients]

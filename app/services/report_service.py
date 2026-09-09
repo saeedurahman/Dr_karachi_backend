@@ -170,6 +170,8 @@ class ReportService:
                     status_code=403,
                     detail="This report is not yet available for patient viewing.",
                 )
+        elif user.role not in (UserRole.super_admin, UserRole.branch_manager, UserRole.lab_staff):
+            raise HTTPException(status_code=403, detail="Not authorized.")
 
         signed_url = self.storage.generate_presigned_url(report.file_path, expires_in=expires_in)
 

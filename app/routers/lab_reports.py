@@ -3,11 +3,15 @@ Lab reports router — /api/v1/lab-reports
 
 Endpoints:
   POST   /upload         → [Staff/Admin/Lab Staff] Upload report (PDF/JPEG/PNG, max 10MB)
-  GET    /               → List reports (patient-scoped or staff-wide)
+  GET    /               → List reports (patient-scoped or lab-staff-wide)
+  GET    /admin           → [Staff/Admin] List reports with patient name/phone joined
   GET    /{id}           → Report metadata (no public URL exposed)
   GET    /{id}/download  → Short-lived presigned download URL (10 min expiry)
   PUT    /{id}           → [Staff/Admin] Update notes / visibility
   DELETE /{id}           → [Staff/Admin] Delete report record and storage file
+
+Access to any report's metadata/download (list, detail, or download) beyond a
+patient's own visible reports is restricted to super_admin/branch_manager/lab_staff.
 """
 from __future__ import annotations
 
@@ -20,8 +24,10 @@ from sqlalchemy.orm import selectinload
 
 from app.dependencies import CurrentUser, DBSession, require_roles
 from app.models.lab_report import LabReport
-from app.models.user import UserRole
+from app.models.user import User, UserRole
 from app.schemas.lab_report import (
+    LabReportAdminListResponse,
+    LabReportAdminResponse,
     LabReportDownloadResponse,
     LabReportListResponse,
     LabReportResponse,
@@ -99,9 +105,11 @@ async def list_lab_reports(
             LabReport.patient_id == current_user.id,
             LabReport.is_visible.is_(True),
         )
-    else:
+    elif current_user.role in (UserRole.super_admin, UserRole.branch_manager, UserRole.lab_staff):
         if patient_id:
             query = query.where(LabReport.patient_id == patient_id)
+    else:
+        raise HTTPException(status_code=403, detail="Not authorized.")
 
     if test_id:
         query = query.where(LabReport.test_id == test_id)
@@ -123,6 +131,63 @@ async def list_lab_reports(
 
     return LabReportListResponse(
         items=[_build_report_response(r) for r in reports],
+        total=total,
+        page=page,
+        limit=limit,
+        pages=pages,
+    )
+
+
+@router.get(
+    "/admin",
+    response_model=LabReportAdminListResponse,
+    summary="[Admin/Lab Staff] List lab reports with patient name/phone joined",
+    dependencies=[require_roles(UserRole.super_admin, UserRole.branch_manager, UserRole.lab_staff)],
+)
+async def list_lab_reports_admin(
+    db: DBSession,
+    patient_id: uuid.UUID | None = None,
+    test_id: uuid.UUID | None = None,
+    appointment_id: uuid.UUID | None = None,
+    is_visible: bool | None = None,
+    page: int = Query(1, ge=1),
+    limit: int = Query(20, ge=1, le=100),
+):
+    query = (
+        select(LabReport, User)
+        .join(User, LabReport.patient_id == User.id)
+        .options(selectinload(LabReport.test))
+    )
+    if patient_id:
+        query = query.where(LabReport.patient_id == patient_id)
+    if test_id:
+        query = query.where(LabReport.test_id == test_id)
+    if appointment_id:
+        query = query.where(LabReport.appointment_id == appointment_id)
+    if is_visible is not None:
+        query = query.where(LabReport.is_visible == is_visible)
+
+    count_query = select(func.count()).select_from(query.subquery())
+    total_result = await db.execute(count_query)
+    total = total_result.scalar_one()
+
+    offset = (page - 1) * limit
+    result = await db.execute(
+        query.order_by(LabReport.created_at.desc()).offset(offset).limit(limit)
+    )
+    rows = result.all()  # (LabReport, User) tuples
+
+    pages = math.ceil(total / limit) if limit > 0 else 1
+
+    return LabReportAdminListResponse(
+        items=[
+            LabReportAdminResponse(
+                **_build_report_response(r).model_dump(),
+                patient_name=u.full_name,
+                patient_phone=u.phone,
+            )
+            for r, u in rows
+        ],
         total=total,
         page=page,
         limit=limit,
@@ -154,6 +219,8 @@ async def get_lab_report(
             raise HTTPException(status_code=403, detail="Not authorized.")
         if not report.is_visible:
             raise HTTPException(status_code=403, detail="Report is not available.")
+    elif current_user.role not in (UserRole.super_admin, UserRole.branch_manager, UserRole.lab_staff):
+        raise HTTPException(status_code=403, detail="Not authorized.")
 
     return _build_report_response(report)
 

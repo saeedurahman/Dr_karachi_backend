@@ -9,7 +9,12 @@ from app.models.cart import CartItem
 from app.models.category import Category
 from app.models.doctor import DayOfWeek, Doctor, DoctorAvailability, DoctorBranch
 from app.models.franchise import FranchiseLead, FranchiseLeadStatus, InvestmentRange
-from app.models.lab_booking import CollectionType, LabBooking, LabBookingStatus
+from app.models.lab_booking import (
+    VALID_BOOKING_STATUS_TRANSITIONS,
+    CollectionType,
+    LabBooking,
+    LabBookingStatus,
+)
 from app.models.lab_report import LabReport, ReportFileType
 from app.models.lab_test import LabTest
 from app.models.notification import NotificationEvent, NotificationEventType
@@ -26,6 +31,7 @@ from app.models.review import Review, ReviewTargetType
 from app.models.user import User, UserRole
 
 __all__ = [
+    "VALID_BOOKING_STATUS_TRANSITIONS",
     "VALID_STATUS_TRANSITIONS",
     "Appointment",
     "AppointmentStatus",

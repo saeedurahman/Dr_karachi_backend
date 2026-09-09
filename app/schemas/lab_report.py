@@ -49,3 +49,16 @@ class LabReportListResponse(BaseModel):
     page: int
     limit: int
     pages: int
+
+
+class LabReportAdminResponse(LabReportResponse):
+    patient_name: str | None = None
+    patient_phone: str | None = None
+
+
+class LabReportAdminListResponse(BaseModel):
+    items: list[LabReportAdminResponse]
+    total: int
+    page: int
+    limit: int
+    pages: int

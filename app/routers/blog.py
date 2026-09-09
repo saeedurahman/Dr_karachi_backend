@@ -19,7 +19,7 @@ from fastapi import APIRouter, HTTPException, Query, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
 
-from app.dependencies import CurrentUser, DBSession, require_roles
+from app.dependencies import CurrentUser, DBSession, OptionalCurrentUser, require_roles
 from app.models.blog import BlogPost
 from app.models.user import UserRole
 from app.schemas.blog import (
@@ -43,15 +43,28 @@ async def list_blog_posts(
     page: int = Query(1, ge=1),
     limit: int = Query(10, ge=1, le=50),
     search: str | None = None,
+    is_published: bool | None = None,
+    is_featured: bool | None = None,
+    current_user: OptionalCurrentUser = None,
 ):
+    is_staff = bool(current_user) and current_user.role in (
+        UserRole.super_admin,
+        UserRole.branch_manager,
+    )
+
     query = (
         select(BlogPost)
-        .where(
-            BlogPost.is_published.is_(True),
-            BlogPost.deleted_at.is_(None),
-        )
+        .where(BlogPost.deleted_at.is_(None))
         .options(selectinload(BlogPost.author))
     )
+
+    if not is_staff:
+        query = query.where(BlogPost.is_published.is_(True))
+    elif is_published is not None:
+        query = query.where(BlogPost.is_published == is_published)
+
+    if is_featured is not None:
+        query = query.where(BlogPost.is_featured == is_featured)
 
     if search:
         term = f"%{search.strip()}%"
