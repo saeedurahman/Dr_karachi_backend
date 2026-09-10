@@ -39,6 +39,12 @@ class Settings(BaseSettings):
     S3_BUCKET_NAME: str = "karachi-clinic-uploads"
     S3_PUBLIC_URL: str = ""  # CDN prefix
 
+    # Product images — separate PUBLIC bucket, same Cloudflare account/endpoint as S3_ENDPOINT_URL
+    PRODUCT_IMAGES_BUCKET_NAME: str = ""
+    PRODUCT_IMAGES_PUBLIC_URL: str = ""
+    PRODUCT_IMAGES_ACCESS_KEY_ID: str = ""
+    PRODUCT_IMAGES_SECRET_ACCESS_KEY: str = ""
+
     # Local fallback
     LOCAL_UPLOAD_DIR: str = "./uploads"
 

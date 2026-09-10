@@ -11,8 +11,9 @@ Key behaviors:
 from __future__ import annotations
 
 import uuid
+from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy import func, select
 
 from app.dependencies import DBSession, require_roles
@@ -25,8 +26,13 @@ from app.schemas.product import (
     ProductUpdate,
 )
 from app.utils.pagination import PagedResponse, PaginationParams, pagination_params
+from app.utils.storage import generate_upload_path, get_product_images_storage
 
 router = APIRouter(prefix="/products", tags=["Pharmacy â€” Products"])
+
+ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
+ALLOWED_IMAGE_MIME_TYPES = {"image/jpeg", "image/png", "image/webp"}
+MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024  # 5 MB
 
 
 def _product_response(product: Product, stock: int | None = None) -> ProductResponse:
@@ -181,6 +187,46 @@ async def update_product(product_id: uuid.UUID, body: ProductUpdate, db: DBSessi
 
     for field, value in data.items():
         setattr(product, field, value)
+    return _product_response(product)
+
+
+@router.post(
+    "/{product_id}/image",
+    response_model=ProductResponse,
+    summary="[Staff/Admin] Upload product image (jpg/jpeg/png/webp, max 5MB)",
+    dependencies=[require_roles(UserRole.super_admin, UserRole.pharmacy_staff)],
+)
+async def upload_product_image(product_id: uuid.UUID, db: DBSession, file: UploadFile = File(...)):
+    result = await db.execute(
+        select(Product).where(Product.id == product_id, Product.deleted_at.is_(None))
+    )
+    product = result.scalar_one_or_none()
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found.")
+
+    filename = file.filename or "image"
+    ext = Path(filename).suffix.lower()
+    if ext not in ALLOWED_IMAGE_EXTENSIONS or file.content_type not in ALLOWED_IMAGE_MIME_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail="Unsupported file format. Allowed: JPG, JPEG, PNG, WEBP.",
+        )
+
+    content = await file.read()
+    if len(content) == 0:
+        raise HTTPException(status_code=400, detail="Uploaded file is empty.")
+    if len(content) > MAX_IMAGE_SIZE_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"File exceeds maximum allowed size of 5MB ({len(content)} bytes).",
+        )
+    await file.seek(0)
+
+    storage = get_product_images_storage()
+    dest_path = generate_upload_path("products", filename)
+    saved_path = await storage.upload(file, dest_path)
+    product.image_url = storage.get_url(saved_path)
+    await db.flush()
     return _product_response(product)
 
 

@@ -76,18 +76,30 @@ class S3Storage:
     """
     Stores files in an S3-compatible bucket (Cloudflare R2 by default).
     Returns internal path and short-lived presigned download URLs.
+
+    Defaults to the shared S3_* settings; pass explicit kwargs to target a
+    second bucket on the same (or a different) account/endpoint — e.g. a
+    public product-images bucket alongside the private default bucket.
     """
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        *,
+        bucket: str | None = None,
+        access_key_id: str | None = None,
+        secret_access_key: str | None = None,
+        public_url: str | None = None,
+        endpoint_url: str | None = None,
+    ) -> None:
         self.client = boto3.client(
             "s3",
-            endpoint_url=settings.S3_ENDPOINT_URL,
-            aws_access_key_id=settings.S3_ACCESS_KEY_ID,
-            aws_secret_access_key=settings.S3_SECRET_ACCESS_KEY,
+            endpoint_url=endpoint_url or settings.S3_ENDPOINT_URL,
+            aws_access_key_id=access_key_id or settings.S3_ACCESS_KEY_ID,
+            aws_secret_access_key=secret_access_key or settings.S3_SECRET_ACCESS_KEY,
             config=Config(signature_version="s3v4"),
         )
-        self.bucket = settings.S3_BUCKET_NAME
-        self.public_url = settings.S3_PUBLIC_URL.rstrip("/")
+        self.bucket = bucket or settings.S3_BUCKET_NAME
+        self.public_url = (public_url or settings.S3_PUBLIC_URL).rstrip("/")
 
     async def upload(self, file: UploadFile, path: str) -> str:
         content = await file.read()
@@ -113,12 +125,13 @@ class S3Storage:
         self.client.delete_object(Bucket=self.bucket, Key=path)
 
 
-# ── Singleton factory ──────────────────────────────────────────────────────────
+# ── Singleton factories ─────────────────────────────────────────────────────────
 _storage_instance: StorageBackend | None = None
+_product_images_storage_instance: StorageBackend | None = None
 
 
 def get_storage() -> StorageBackend:
-    """Return the configured storage backend (singleton)."""
+    """Return the configured default storage backend (singleton, private bucket)."""
     global _storage_instance
     if _storage_instance is None:
         if settings.STORAGE_BACKEND == "s3":
@@ -126,6 +139,27 @@ def get_storage() -> StorageBackend:
         else:
             _storage_instance = LocalStorage()
     return _storage_instance
+
+
+def get_product_images_storage() -> StorageBackend:
+    """
+    Return the product-images storage backend (singleton, PUBLIC bucket).
+
+    Same Cloudflare account/endpoint as the default bucket (S3_ENDPOINT_URL),
+    different bucket name and credentials (PRODUCT_IMAGES_*).
+    """
+    global _product_images_storage_instance
+    if _product_images_storage_instance is None:
+        if settings.STORAGE_BACKEND == "s3":
+            _product_images_storage_instance = S3Storage(
+                bucket=settings.PRODUCT_IMAGES_BUCKET_NAME,
+                access_key_id=settings.PRODUCT_IMAGES_ACCESS_KEY_ID,
+                secret_access_key=settings.PRODUCT_IMAGES_SECRET_ACCESS_KEY,
+                public_url=settings.PRODUCT_IMAGES_PUBLIC_URL,
+            )
+        else:
+            _product_images_storage_instance = LocalStorage()
+    return _product_images_storage_instance
 
 
 def generate_upload_path(folder: str, filename: str) -> str:
