@@ -4,8 +4,9 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime, timedelta
 from datetime import date as Date
+from pathlib import Path
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, File, HTTPException, UploadFile, status
 from sqlalchemy import delete, select
 from sqlalchemy.orm import selectinload
 
@@ -25,6 +26,11 @@ from app.schemas.doctor import (
     DoctorUpdate,
     SlotResponse,
 )
+from app.utils.storage import generate_upload_path, get_product_images_storage
+
+ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
+ALLOWED_IMAGE_MIME_TYPES = {"image/jpeg", "image/png", "image/webp"}
+MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024  # 5 MB
 
 
 def _build_doctor_response(doctor: Doctor) -> DoctorResponse:
@@ -227,6 +233,54 @@ async def update_doctor(
     )
     loaded = res.scalar_one()
     return _build_doctor_response(loaded)
+
+
+@router.post(
+    "/{doctor_id}/image",
+    response_model=DoctorResponse,
+    summary="[Admin] Upload doctor profile image (jpg/jpeg/png/webp, max 5MB)",
+    dependencies=[require_roles(UserRole.super_admin, UserRole.branch_manager)],
+)
+async def upload_doctor_image(
+    doctor_id: uuid.UUID, db: DBSession, file: UploadFile = File(...)
+):
+    result = await db.execute(
+        select(Doctor)
+        .where(Doctor.id == doctor_id, Doctor.deleted_at.is_(None))
+        .options(
+            selectinload(Doctor.user),
+            selectinload(Doctor.doctor_branches).selectinload(DoctorBranch.branch),
+        )
+    )
+    doctor = result.scalar_one_or_none()
+    if not doctor:
+        raise HTTPException(status_code=404, detail="Doctor not found.")
+
+    filename = file.filename or "image"
+    ext = Path(filename).suffix.lower()
+    if ext not in ALLOWED_IMAGE_EXTENSIONS or file.content_type not in ALLOWED_IMAGE_MIME_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail="Unsupported file format. Allowed: JPG, JPEG, PNG, WEBP.",
+        )
+
+    content = await file.read()
+    if len(content) == 0:
+        raise HTTPException(status_code=400, detail="Uploaded file is empty.")
+    if len(content) > MAX_IMAGE_SIZE_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"File exceeds maximum allowed size of 5MB ({len(content)} bytes).",
+        )
+    await file.seek(0)
+
+    storage = get_product_images_storage()
+    dest_path = generate_upload_path("doctors", filename)
+    saved_path = await storage.upload(file, dest_path)
+    doctor.profile_image_url = storage.get_url(saved_path)
+    await db.flush()
+
+    return _build_doctor_response(doctor)
 
 
 @router.delete(
