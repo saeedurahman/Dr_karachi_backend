@@ -7,6 +7,7 @@ Endpoints:
   GET    /{slug}       → Article detail (increments view_count)
   POST   /             → [Staff/Admin] Create article (auto-slug)
   PUT    /{id}         → [Staff/Admin] Update article
+  POST   /{id}/cover-image → [Staff/Admin] Upload cover image (public bucket)
   DELETE /{id}         → [Staff/Admin] Soft-delete article
 """
 from __future__ import annotations
@@ -14,8 +15,9 @@ from __future__ import annotations
 import math
 import uuid
 from datetime import UTC, datetime
+from pathlib import Path
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, File, HTTPException, Query, UploadFile, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
 
@@ -29,8 +31,13 @@ from app.schemas.blog import (
     BlogPostUpdate,
 )
 from app.services.blog_service import BlogService
+from app.utils.storage import generate_upload_path, get_product_images_storage
 
 router = APIRouter(prefix="/blog", tags=["Blog"])
+
+ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
+ALLOWED_IMAGE_MIME_TYPES = {"image/jpeg", "image/png", "image/webp"}
+MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024  # 5 MB
 
 
 @router.get(
@@ -143,6 +150,51 @@ async def update_blog_post(
 ):
     service = BlogService(db)
     return await service.update_post(post_id=post_id, body=body)
+
+
+@router.post(
+    "/{post_id}/cover-image",
+    response_model=BlogPostResponse,
+    summary="[Staff/Admin] Upload blog post cover image (jpg/jpeg/png/webp, max 5MB)",
+    dependencies=[require_roles(UserRole.super_admin, UserRole.branch_manager)],
+)
+async def upload_blog_cover_image(
+    post_id: uuid.UUID, db: DBSession, file: UploadFile = File(...)
+):
+    result = await db.execute(
+        select(BlogPost)
+        .where(BlogPost.id == post_id, BlogPost.deleted_at.is_(None))
+        .options(selectinload(BlogPost.author))
+    )
+    post = result.scalar_one_or_none()
+    if not post:
+        raise HTTPException(status_code=404, detail="Blog post not found.")
+
+    filename = file.filename or "image"
+    ext = Path(filename).suffix.lower()
+    if ext not in ALLOWED_IMAGE_EXTENSIONS or file.content_type not in ALLOWED_IMAGE_MIME_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail="Unsupported file format. Allowed: JPG, JPEG, PNG, WEBP.",
+        )
+
+    content = await file.read()
+    if len(content) == 0:
+        raise HTTPException(status_code=400, detail="Uploaded file is empty.")
+    if len(content) > MAX_IMAGE_SIZE_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"File exceeds maximum allowed size of 5MB ({len(content)} bytes).",
+        )
+    await file.seek(0)
+
+    storage = get_product_images_storage()
+    dest_path = generate_upload_path("blog", filename)
+    saved_path = await storage.upload(file, dest_path)
+    post.cover_image_url = storage.get_url(saved_path)
+    await db.flush()
+
+    return BlogService._build_response(post, post.author)
 
 
 @router.delete(
