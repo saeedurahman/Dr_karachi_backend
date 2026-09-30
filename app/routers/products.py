@@ -1,4 +1,4 @@
-﻿"""
+"""
 Products router â€” /api/v1/pharmacy/products
 
 Key behaviors:
@@ -10,13 +10,19 @@ Key behaviors:
 """
 from __future__ import annotations
 
+import codecs
+import csv
 import uuid
+from io import StringIO
 from pathlib import Path
+from typing import Any
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy import func, select
 
 from app.dependencies import DBSession, require_roles
+from app.models.category import Category
 from app.models.product import BranchStock, Product
 from app.models.user import UserRole
 from app.schemas.product import (
@@ -275,3 +281,185 @@ async def upsert_branch_stock(product_id: uuid.UUID, body: BranchStockUpsert, db
         db.add(bs)
     await db.flush()
     return {"product_id": product_id, "branch_id": body.branch_id, "stock": bs.stock}
+
+
+# ─── 1. Template Download ────────────────────────────────────────────────────────
+
+@router.get(
+    "/import/template",
+    summary="[Staff/Admin] Download product import template CSV",
+    dependencies=[require_roles(UserRole.super_admin, UserRole.pharmacy_staff)],
+)
+async def download_import_template():
+    output = StringIO()
+    writer = csv.writer(output)
+    writer.writerow([
+        "name", "sku", "description", "price", 
+        "discount_percent", "category_name", "requires_prescription"
+    ])
+    writer.writerow([
+        "Example Panadol", "SKU-PAN-001", "Pain relief tablets", "120.00", 
+        "0", "Pain Relief", "no"
+    ])
+    
+    output.seek(0)
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename=product_import_template.csv"}
+    )
+
+# ─── Helper: Parse and Validate CSV File ──────────────────────────────────────────
+
+async def parse_and_validate_import(file: UploadFile, db: DBSession, commit: bool = False) -> dict[str, Any]:
+    if not file.filename.endswith(('.csv', '.xlsx')):
+        raise HTTPException(status_code=400, detail="Only .csv files are supported for now.")
+    
+    # Read the file content
+    try:
+        content = await file.read()
+        decoded_content = codecs.decode(content, 'utf-8')
+        csv_reader = csv.DictReader(StringIO(decoded_content))
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid CSV format.")
+    finally:
+        await file.seek(0)
+
+    rows = []
+    summary = {"create": 0, "skip": 0, "skipped_at_commit": 0, "uncategorized": 0, "error": 0}
+    
+    # Pre-fetch existing SKUs and categories for fast lookup
+    skus_result = await db.execute(select(Product.sku))
+    existing_skus = {sku for (sku,) in skus_result.all()}
+    
+    cats_result = await db.execute(select(Category))
+    existing_categories = {c.name.lower(): c.id for c in cats_result.scalars().all()}
+    
+    uncategorized_id = existing_categories.get("uncategorized")
+
+    for i, row in enumerate(csv_reader):
+        row_num = i + 2 # Header is row 1
+        sku = row.get("sku", "").strip().upper()
+        name = row.get("name", "").strip()
+        price_str = row.get("price", "0").strip()
+        discount_str = row.get("discount_percent", "0").strip()
+        category_name = row.get("category_name", "").strip()
+        req_rx_str = row.get("requires_prescription", "no").strip().lower()
+
+        # Hard validations
+        if not sku or not name:
+            rows.append({"row_num": row_num, "sku": sku or "MISSING", "status": "error", "message": "SKU and Name are required."})
+            summary["error"] += 1
+            continue
+            
+        try:
+            price = float(price_str)
+            if price <= 0:
+                raise ValueError
+        except ValueError:
+            rows.append({"row_num": row_num, "sku": sku, "status": "error", "message": "Price must be a positive number."})
+            summary["error"] += 1
+            continue
+
+        try:
+            discount_percent = float(discount_str)
+            if not (0 <= discount_percent <= 100):
+                raise ValueError
+        except ValueError:
+            rows.append({"row_num": row_num, "sku": sku, "status": "error", "message": "Discount must be between 0 and 100."})
+            summary["error"] += 1
+            continue
+
+        requires_prescription = req_rx_str in ['yes', 'true', '1', 'y']
+
+        # Conflict check
+        if sku in existing_skus:
+            # If committing, it means a conflict happened after preview, or it was already known.
+            if commit:
+                summary["skipped_at_commit"] += 1
+            else:
+                summary["skip"] += 1
+            rows.append({"row_num": row_num, "sku": sku, "status": "skip", "message": "SKU already exists."})
+            continue
+
+        # Category mapping
+        cat_id = existing_categories.get(category_name.lower())
+        status = "create"
+        msg = "Ready to create"
+
+        if not cat_id:
+            status = "uncategorized"
+            msg = f"Assigned to Uncategorized (Original: '{category_name}')"
+            summary["uncategorized"] += 1
+            
+            if commit:
+                # Create Uncategorized if it doesn't exist yet
+                if not uncategorized_id:
+                    new_cat = Category(name="Uncategorized", slug="uncategorized")
+                    db.add(new_cat)
+                    await db.flush()
+                    uncategorized_id = new_cat.id
+                    existing_categories["uncategorized"] = uncategorized_id
+                cat_id = uncategorized_id
+        else:
+            summary["create"] += 1
+
+        rows.append({
+            "row_num": row_num,
+            "sku": sku,
+            "name": name,
+            "status": status,
+            "message": msg,
+            "original_category": category_name
+        })
+
+        if commit:
+            description_text = row.get("description", "").strip()
+            new_product = Product(
+                sku=sku,
+                name=name,
+                description=description_text if description_text else None,
+                price=price,
+                discount_percent=discount_percent,
+                category_id=cat_id,
+                requires_prescription=requires_prescription,
+                is_active=True
+            )
+            db.add(new_product)
+            # Add to local set to catch duplicate SKUs within the same CSV file
+            existing_skus.add(sku)
+
+    return {"rows": rows, "summary": summary}
+
+# ─── 2. Preview Endpoint ─────────────────────────────────────────────────────────
+
+@router.post(
+    "/import/preview",
+    summary="[Staff/Admin] Preview products import",
+    dependencies=[require_roles(UserRole.super_admin, UserRole.pharmacy_staff)],
+)
+async def preview_products_import(
+    db: DBSession,
+    file: UploadFile = File(...),
+):
+    return await parse_and_validate_import(file, db, commit=False)
+
+# ─── 3. Commit Endpoint ──────────────────────────────────────────────────────────
+
+@router.post(
+    "/import/commit",
+    summary="[Staff/Admin] Commit products import",
+    dependencies=[require_roles(UserRole.super_admin, UserRole.pharmacy_staff)],
+)
+async def commit_products_import(
+    db: DBSession,
+    file: UploadFile = File(...),
+):
+    try:
+        # DBSession manages the transaction but if an error occurs we should rollback explicitly
+        result = await parse_and_validate_import(file, db, commit=True)
+        await db.commit()
+        return result
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
