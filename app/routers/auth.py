@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, status
+import uuid
 
 from app.dependencies import CurrentUser, DBSession, require_roles
 from app.models.user import UserRole
