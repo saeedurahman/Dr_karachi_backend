@@ -11,8 +11,10 @@ from app.schemas.auth import (
     LogoutRequest,
     PatientRegisterRequest,
     RefreshTokenRequest,
+    ResetPasswordRequest,
     TokenResponse,
     UpdateProfileRequest,
+    UpdateStaffUserRequest,
     UserResponse,
 )
 from app.services.auth_service import AuthService
@@ -152,4 +154,69 @@ async def list_staff_users(
         query = query.where(User.role != UserRole.patient)
     result = await db.execute(query.order_by(User.created_at.desc()))
     return [UserResponse.model_validate(u) for u in result.scalars().all()]
+
+
+@router.put(
+    "/admin/users/{user_id}",
+    response_model=UserResponse,
+    summary="[Admin] Update staff or doctor account",
+    dependencies=[require_roles(UserRole.super_admin)],
+)
+async def update_staff_user(
+    user_id: uuid.UUID,
+    body: UpdateStaffUserRequest,
+    db: DBSession,
+):
+    from sqlalchemy import select
+    from app.models.user import User
+    from fastapi import HTTPException
+
+    user_result = await db.execute(select(User).where(User.id == user_id, User.deleted_at.is_(None)))
+    user = user_result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    if user.role == UserRole.patient:
+        raise HTTPException(status_code=400, detail="Cannot edit patient accounts through this endpoint")
+
+    if body.full_name is not None:
+        user.full_name = body.full_name
+    if body.email is not None:
+        user.email = body.email
+    if body.role is not None:
+        user.role = body.role
+    if body.is_active is not None:
+        user.is_active = body.is_active
+
+    await db.flush()
+    return UserResponse.model_validate(user)
+
+
+@router.post(
+    "/admin/users/{user_id}/reset-password",
+    response_model=UserResponse,
+    summary="[Admin] Reset password for staff or doctor account",
+    dependencies=[require_roles(UserRole.super_admin)],
+)
+async def reset_staff_password(
+    user_id: uuid.UUID,
+    body: ResetPasswordRequest,
+    db: DBSession,
+):
+    from sqlalchemy import select
+    from app.models.user import User
+    from app.utils.security import hash_password
+    from fastapi import HTTPException
+
+    user_result = await db.execute(select(User).where(User.id == user_id, User.deleted_at.is_(None)))
+    user = user_result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    if user.role == UserRole.patient:
+        raise HTTPException(status_code=400, detail="Cannot reset patient passwords through this endpoint")
+
+    user.hashed_password = hash_password(body.password)
+    await db.flush()
+    return UserResponse.model_validate(user)
 

@@ -62,6 +62,36 @@ class UpdateProfileRequest(BaseModel):
     email: EmailStr | None = None
 
 
+class UpdateStaffUserRequest(BaseModel):
+    full_name: str | None = Field(None, min_length=2, max_length=255)
+    email: EmailStr | None = None
+    role: UserRole | None = None
+    is_active: bool | None = None
+
+    @field_validator("role")
+    @classmethod
+    def role_not_patient(cls, v: UserRole | None) -> UserRole | None:
+        if v == UserRole.patient:
+            raise ValueError("Role cannot be patient.")
+        return v
+
+
+class ResetPasswordRequest(BaseModel):
+    password: str = Field(..., min_length=8, max_length=128)
+
+    @field_validator("password")
+    @classmethod
+    def password_complexity(cls, v: str) -> str:
+        if len(v) < 8:
+            raise ValueError("Password must be at least 8 characters long.")
+        if not any(c.isdigit() for c in v):
+            raise ValueError("Password must contain at least one digit.")
+        if not any(c.isalpha() for c in v):
+            raise ValueError("Password must contain at least one letter.")
+        return v
+
+
+
 # ── Response schemas ───────────────────────────────────────────────────────────
 class UserResponse(BaseModel):
     id: uuid.UUID
