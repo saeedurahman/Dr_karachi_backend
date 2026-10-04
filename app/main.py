@@ -27,6 +27,7 @@ from app.routers import (
     lab_tests,
     products,
     reviews,
+    whatsapp_webhook,
 )
 from app.utils.limiter import limiter
 
@@ -45,6 +46,7 @@ TAGS_METADATA = [
     {"name": "Reviews", "description": "Doctor and service ratings, atomic upsert, moderation, and summary scores."},
     {"name": "Blog", "description": "Health articles, auto-slug generation, featured top articles, and SEO tags."},
     {"name": "Franchise Leads", "description": "Rate-limited franchise inquiries with admin status tracking."},
+    {"name": "WhatsApp Webhook", "description": "Public Meta WhatsApp Cloud API webhook (verification + signed event receiver)."},
 ]
 
 
@@ -116,6 +118,9 @@ def create_app() -> FastAPI:
     app.include_router(reviews.router, prefix=API_V1)
     app.include_router(blog.router, prefix=API_V1)
     app.include_router(franchise.router, prefix=API_V1)
+
+    # Phase 5 � WhatsApp webhook (public, no rate limit)
+    app.include_router(whatsapp_webhook.router, prefix=API_V1)
 
     # ── Health check ───────────────────────────────────────────────────────────
     @app.get("/health", tags=["Health"], include_in_schema=False)

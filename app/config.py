@@ -63,5 +63,9 @@ class Settings(BaseSettings):
     # ── Rate Limiting ──────────────────────────────────────────
     RATE_LIMIT_PER_MINUTE: int = 100
 
+    # ── WhatsApp Cloud API ─────────────────────────────────────
+    WHATSAPP_VERIFY_TOKEN: str = ""
+    WHATSAPP_APP_SECRET: str = ""
+
 
 settings = Settings()  # type: ignore[call-arg]
