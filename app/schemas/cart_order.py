@@ -1,4 +1,4 @@
-﻿"""
+"""
 Pydantic schemas for Cart and Order endpoints.
 """
 from __future__ import annotations
@@ -67,6 +67,7 @@ class CheckoutRequest(BaseModel):
     delivery_address: str | None = None
     notes: str | None = None
     payment_method: PaymentMethod = PaymentMethod.cod
+    marketing_opt_in: bool = False
 
     def validate_delivery(self) -> None:
         if self.delivery_method == "delivery" and not self.delivery_address:

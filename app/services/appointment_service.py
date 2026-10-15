@@ -226,9 +226,24 @@ class AppointmentService:
             delivery_channel="whatsapp",
         )
 
+        # 7. Record marketing consent if requested
+        if getattr(body, "marketing_opt_in", False) and patient.phone:
+            from app.services.whatsapp.consent_service import ConsentService
+            await ConsentService.set_marketing_opt_in(
+                db=self.db,
+                phone=patient.phone,
+                value=True,
+                source="appointment_booking",
+                user_id=patient.id,
+            )
+
         # Commit so the doctor/slot locks are held until the booking is durable.
         await self.db.commit()
         appointment.patient = patient
+
+        # Trigger WhatsApp transactional notification (runs after commit)
+        from app.services.whatsapp.transactional_handlers import trigger_appointment_confirmed
+        trigger_appointment_confirmed(appointment.id)
 
         return self._build_response(appointment, doctor, branch)
 
@@ -310,6 +325,16 @@ class AppointmentService:
 
         await self.db.commit()
         appointment.patient = patient
+
+        # Trigger WhatsApp transactional notification (runs after commit)
+        from app.services.whatsapp.transactional_handlers import (
+            trigger_appointment_cancelled,
+            trigger_appointment_confirmed,
+        )
+        if body.status == AppointmentStatus.cancelled:
+            trigger_appointment_cancelled(appointment.id)
+        elif body.status == AppointmentStatus.confirmed:
+            trigger_appointment_confirmed(appointment.id)
 
         return self._build_response(appointment, doctor, branch)
 

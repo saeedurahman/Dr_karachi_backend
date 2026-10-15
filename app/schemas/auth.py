@@ -15,6 +15,7 @@ class PatientRegisterRequest(BaseModel):
     phone: str = Field(..., pattern=r"^\+?[0-9]{10,15}$")
     password: str = Field(..., min_length=8, max_length=128)
     email: EmailStr | None = None
+    marketing_opt_in: bool = False
 
 
 class LoginRequest(BaseModel):

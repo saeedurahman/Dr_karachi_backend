@@ -43,8 +43,15 @@ DEFAULT_TEMPLATES_DICT: dict[str, dict[str, Any]] = {
     },
     "lab_report_ready": {
         "template_name": "lab_report_ready",
+        "category": "transactional",
         "languages": {"en": "en", "ur": "ur"},
-        "body_params": ["patient_name", "test_name", "report_url"],
+        "body_params": ["patient_name", "branch_name", "report_url"],
+    },
+    "promotional_offer": {
+        "template_name": "promotional_offer",
+        "category": "marketing",
+        "languages": {"en": "en", "ur": "ur"},
+        "body_params": ["customer_name", "offer_title", "discount_details", "expiry_date"],
     },
 }
 
@@ -55,6 +62,7 @@ class TemplateConfig:
 
     key: str
     template_name: str
+    category: str = "transactional"  # "transactional" | "marketing"
     languages: dict[str, str] = field(default_factory=lambda: {"en": "en"})
     body_params: list[str] = field(default_factory=list)
     header_params: list[str] = field(default_factory=list)
@@ -109,6 +117,7 @@ class TemplateRegistry:
             if not isinstance(entry, dict):
                 continue
             template_name = entry.get("template_name", key)
+            category = entry.get("category", "transactional")
             languages = entry.get("languages", {"en": "en"})
             body_params = entry.get("body_params", [])
             header_params = entry.get("header_params", [])
@@ -117,6 +126,7 @@ class TemplateRegistry:
             self._templates[key] = TemplateConfig(
                 key=key,
                 template_name=template_name,
+                category=category,
                 languages=languages,
                 body_params=body_params,
                 header_params=header_params,

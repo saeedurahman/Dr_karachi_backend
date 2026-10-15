@@ -20,8 +20,8 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "development"
 
     # ── Database ───────────────────────────────────────────────
-    DATABASE_URL: str = "postgresql+asyncpg://user:password@localhost:5432/karachi_db"  # async URL  (asyncpg)
-    SYNC_DATABASE_URL: str = "postgresql+psycopg2://user:password@localhost:5432/karachi_db"  # sync URL   (psycopg2, Alembic)
+    DATABASE_URL: str = "postgresql+asyncpg://karachi_user:karachi_pass@localhost:5432/karachi_test_db"  # async URL  (asyncpg)
+    SYNC_DATABASE_URL: str = "postgresql+psycopg2://karachi_user:karachi_pass@localhost:5432/karachi_test_db"  # sync URL   (psycopg2, Alembic)
 
     # ── JWT ────────────────────────────────────────────────────
     SECRET_KEY: str = "dev-secret-key-must-be-changed-in-production-min-32-chars"
@@ -73,6 +73,11 @@ class Settings(BaseSettings):
     WHATSAPP_ACCESS_TOKEN: str = ""
     WHATSAPP_VERIFY_TOKEN: str = ""
     WHATSAPP_APP_SECRET: str = ""
+
+    # ── Secure Lab Report Links ────────────────────────────────
+    REPORT_LINK_SECRET: str = "default-insecure-report-link-secret-change-in-prod"
+    REPORT_LINK_TTL_HOURS: int = 48
+    API_PUBLIC_URL: str = "http://localhost:8000"
 
 
 settings = Settings()  # type: ignore[call-arg]

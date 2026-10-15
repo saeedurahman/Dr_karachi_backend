@@ -113,13 +113,14 @@ def create_app() -> FastAPI:
     app.include_router(lab_tests.router, prefix=API_V1)
     app.include_router(appointments.router, prefix=API_V1)
     app.include_router(lab_reports.router, prefix=API_V1)
+    app.include_router(lab_reports.access_router, prefix=API_V1)
 
     # Phase 4 — Reviews, Blog, Franchise Leads
     app.include_router(reviews.router, prefix=API_V1)
     app.include_router(blog.router, prefix=API_V1)
     app.include_router(franchise.router, prefix=API_V1)
 
-    # Phase 5 � WhatsApp webhook (public, no rate limit)
+    # Phase 5 � WhatsApp webhook (public, no rate limit)
     app.include_router(whatsapp_webhook.router, prefix=API_V1)
 
     # ── Health check ───────────────────────────────────────────────────────────

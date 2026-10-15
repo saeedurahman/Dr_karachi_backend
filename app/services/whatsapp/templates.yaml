@@ -1,9 +1,10 @@
 # WhatsApp Cloud API Message Templates Configuration
 # Maps internal business keys to Meta registered template names,
-# supported language codes (with fallback to 'en'), and ordered parameters.
+# categories (transactional vs marketing), supported language codes, and ordered parameters.
 
 appointment_confirmed:
   template_name: appointment_confirmed
+  category: transactional
   languages:
     en: en
     ur: ur
@@ -15,6 +16,7 @@ appointment_confirmed:
 
 appointment_reminder_1h:
   template_name: appointment_reminder_1h
+  category: transactional
   languages:
     en: en
     ur: ur
@@ -26,6 +28,7 @@ appointment_reminder_1h:
 
 appointment_cancelled:
   template_name: appointment_cancelled
+  category: transactional
   languages:
     en: en
     ur: ur
@@ -37,6 +40,7 @@ appointment_cancelled:
 
 order_status:
   template_name: order_status_update
+  category: transactional
   languages:
     en: en
     ur: ur
@@ -48,6 +52,7 @@ order_status:
 
 order_confirmed:
   template_name: order_confirmed
+  category: transactional
   languages:
     en: en
     ur: ur
@@ -58,10 +63,23 @@ order_confirmed:
 
 lab_report_ready:
   template_name: lab_report_ready
+  category: transactional
   languages:
     en: en
     ur: ur
   body_params:
     - patient_name
-    - test_name
+    - branch_name
     - report_url
+
+promotional_offer:
+  template_name: promotional_offer
+  category: marketing
+  languages:
+    en: en
+    ur: ur
+  body_params:
+    - customer_name
+    - offer_title
+    - discount_details
+    - expiry_date

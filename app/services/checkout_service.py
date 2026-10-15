@@ -1,4 +1,4 @@
-﻿"""
+"""
 Checkout service â€” converts a validated cart into an Order.
 
 Critical behaviors:
@@ -145,7 +145,18 @@ class CheckoutService:
             delivery_channel="whatsapp",
         )
 
-        # 8. Clear cart items for this branch on success
+        # 8. Record marketing consent if requested
+        if getattr(body, "marketing_opt_in", False) and user.phone:
+            from app.services.whatsapp.consent_service import ConsentService
+            await ConsentService.set_marketing_opt_in(
+                db=self.db,
+                phone=user.phone,
+                value=True,
+                source="checkout",
+                user_id=user.id,
+            )
+
+        # 9. Clear cart items for this branch on success
         await self.db.execute(
             delete(CartItem).where(
                 CartItem.user_id == user.id,
@@ -156,6 +167,10 @@ class CheckoutService:
         # Without this, concurrent sessions see the pre-decrement stock after rollback
         # on session close and both checkouts can succeed (oversell).
         await self.db.commit()
+
+        # Trigger WhatsApp transactional notification (runs after commit)
+        from app.services.whatsapp.transactional_handlers import trigger_order_placed
+        trigger_order_placed(order.id)
 
         return self._build_response(order, order_item_models, patient=user)
 
@@ -199,6 +214,13 @@ class CheckoutService:
         )
         items = items_result.scalars().all()
         patient = await self.db.get(User, order.patient_id)
+
+        await self.db.commit()
+
+        # Trigger WhatsApp transactional notification (runs after commit)
+        from app.services.whatsapp.transactional_handlers import trigger_order_status_changed
+        trigger_order_status_changed(order.id, new_status=body.status.value)
+
         return self._build_response(order, items, patient=patient)
 
     # â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€

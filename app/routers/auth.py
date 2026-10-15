@@ -37,6 +37,15 @@ async def register(body: PatientRegisterRequest, db: DBSession):
         password=body.password,
         email=body.email,
     )
+    if body.marketing_opt_in and body.phone:
+        from app.services.whatsapp.consent_service import ConsentService
+        await ConsentService.set_marketing_opt_in(
+            db=db,
+            phone=body.phone,
+            value=True,
+            source="patient_registration",
+            user_id=user.id,
+        )
     tokens = await svc._issue_token_pair(user)
     return TokenResponse(**tokens, user=UserResponse.model_validate(user))
 

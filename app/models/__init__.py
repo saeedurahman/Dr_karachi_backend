@@ -29,6 +29,13 @@ from app.models.product import BranchStock, Product
 from app.models.refresh_token import RefreshToken
 from app.models.review import Review, ReviewTargetType
 from app.models.user import User, UserRole
+from app.models.whatsapp_consent import WhatsAppConsent
+from app.models.whatsapp_message import (
+    WhatsAppMessage,
+    WhatsAppMessageDirection,
+    WhatsAppMessageStatus,
+    WhatsAppMessageType,
+)
 
 __all__ = [
     "VALID_BOOKING_STATUS_TRANSITIONS",
@@ -65,4 +72,9 @@ __all__ = [
     "ReviewTargetType",
     "User",
     "UserRole",
+    "WhatsAppConsent",
+    "WhatsAppMessage",
+    "WhatsAppMessageDirection",
+    "WhatsAppMessageStatus",
+    "WhatsAppMessageType",
 ]

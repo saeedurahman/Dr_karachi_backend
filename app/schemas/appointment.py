@@ -24,6 +24,7 @@ class AppointmentCreate(BaseModel):
         description="Exact start datetime of the 30-minute slot (e.g. 2026-09-10T10:00:00Z)",
     )
     notes: str | None = Field(None, max_length=1000)
+    marketing_opt_in: bool = False
 
 
 class AppointmentStatusUpdate(BaseModel):

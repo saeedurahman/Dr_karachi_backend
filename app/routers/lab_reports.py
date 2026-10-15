@@ -19,6 +19,7 @@ import math
 import uuid
 
 from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile, status
+from fastapi.responses import RedirectResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
 
@@ -34,9 +35,11 @@ from app.schemas.lab_report import (
     LabReportUpdate,
 )
 from app.services.report_service import ReportService
+from app.utils.report_security import TokenStatus, inspect_report_access_token
 from app.utils.storage import get_storage
 
 router = APIRouter(prefix="/lab-reports", tags=["Lab Reports"])
+access_router = APIRouter(prefix="/lab/reports", tags=["Lab Reports"])
 
 
 def _build_report_response(r: LabReport) -> LabReportResponse:
@@ -74,7 +77,7 @@ async def upload_lab_report(
     db: DBSession = None,
 ):
     service = ReportService(db)
-    return await service.upload_report(
+    resp = await service.upload_report(
         patient_id=patient_id,
         file=file,
         uploaded_by=current_user,
@@ -82,6 +85,12 @@ async def upload_lab_report(
         appointment_id=appointment_id,
         notes=notes,
     )
+    await db.commit()
+
+    from app.services.whatsapp.transactional_handlers import trigger_lab_report_ready
+    trigger_lab_report_ready(resp.id)
+
+    return resp
 
 
 @router.get(
@@ -261,6 +270,12 @@ async def update_lab_report(
         report.notes = body.notes
 
     await db.flush()
+    await db.commit()
+
+    if body.is_visible is True:
+        from app.services.whatsapp.transactional_handlers import trigger_lab_report_ready
+        trigger_lab_report_ready(report.id)
+
     return LabReportResponse.model_validate(report)
 
 
@@ -286,3 +301,65 @@ async def delete_lab_report(
     # Delete from database
     await db.delete(report)
     await db.flush()
+
+
+@router.get(
+    "/access/{token}",
+    status_code=status.HTTP_307_TEMPORARY_REDIRECT,
+    summary="Public secure access endpoint for lab report (no login required)",
+    response_class=RedirectResponse,
+)
+@access_router.get(
+    "/access/{token}",
+    status_code=status.HTTP_307_TEMPORARY_REDIRECT,
+    summary="Public secure access endpoint for lab report (no login required)",
+    response_class=RedirectResponse,
+)
+async def access_lab_report(
+    token: str,
+    db: DBSession,
+):
+    """Validate signature and expiry, check report exists and is_visible=True, then 307 redirect.
+
+    Multiple views allowed within TTL.
+    Never logs the token body.
+    """
+    token_status, report_id, patient_id = inspect_report_access_token(token)
+
+    headers = {
+        "Cache-Control": "no-store",
+        "Referrer-Policy": "no-referrer",
+    }
+
+    if token_status == TokenStatus.EXPIRED:
+        raise HTTPException(
+            status_code=status.HTTP_410_GONE,
+            detail="The requested report access link has expired.",
+            headers=headers,
+        )
+
+    if token_status != TokenStatus.VALID or not report_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Report not found.",
+            headers=headers,
+        )
+
+    result = await db.execute(select(LabReport).where(LabReport.id == report_id))
+    report = result.scalar_one_or_none()
+    if not report or not report.is_visible:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Report not found.",
+            headers=headers,
+        )
+
+    storage = get_storage()
+    presigned_url = storage.generate_presigned_url(report.file_path, expires_in=600)
+
+    return RedirectResponse(
+        url=presigned_url,
+        status_code=status.HTTP_307_TEMPORARY_REDIRECT,
+        headers=headers,
+    )
+

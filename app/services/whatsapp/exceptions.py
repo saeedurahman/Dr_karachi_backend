@@ -42,6 +42,23 @@ class WhatsAppAuthError(WhatsAppError):
     pass
 
 
+class DuplicateMessageError(WhatsAppError):
+    """Raised when an outbound message with an identical dedupe_key already exists."""
+
+    def __init__(self, message: str, existing_message: Any = None) -> None:
+        super().__init__(message)
+        self.existing_message = existing_message
+
+
+class ConsentBlockedError(WhatsAppError):
+    """Raised when an outbound message is blocked by patient consent preferences."""
+
+    def __init__(self, message: str, phone: str | None = None, category: str | None = None) -> None:
+        super().__init__(message)
+        self.phone = phone
+        self.category = category
+
+
 class WhatsAppRateLimitError(WhatsAppError):
     """Raised when throughput or Cloud API rate limit is exceeded (e.g. Meta error 130429 or HTTP 429)."""
     pass

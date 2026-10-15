@@ -43,8 +43,6 @@ async def setup_test_db():
             await conn.run_sync(Base.metadata.drop_all)
             await conn.run_sync(Base.metadata.create_all)
         yield
-        async with test_engine.begin() as conn:
-            await conn.run_sync(Base.metadata.drop_all)
         await test_engine.dispose()
     except (OSError, SQLAlchemyError) as e:
         import pytest
@@ -56,8 +54,15 @@ async def setup_test_db():
 async def db_session(setup_test_db) -> AsyncGenerator[AsyncSession, None]:
     """Provide an isolated database session per test with automatic rollback/clean state."""
     async with TestSessionLocal() as session:
-        yield session
-        await session.rollback()
+        try:
+            yield session
+        finally:
+            try:
+                if session.is_active:
+                    await session.rollback()
+            except Exception:
+                pass
+            await session.close()
 
 
 @pytest_asyncio.fixture
