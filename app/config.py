@@ -20,14 +20,17 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "development"
 
     # ── Database ───────────────────────────────────────────────
-    DATABASE_URL: str  # async URL  (asyncpg)
-    SYNC_DATABASE_URL: str  # sync URL   (psycopg2, Alembic)
+    DATABASE_URL: str = "postgresql+asyncpg://user:password@localhost:5432/karachi_db"  # async URL  (asyncpg)
+    SYNC_DATABASE_URL: str = "postgresql+psycopg2://user:password@localhost:5432/karachi_db"  # sync URL   (psycopg2, Alembic)
 
     # ── JWT ────────────────────────────────────────────────────
-    SECRET_KEY: str
+    SECRET_KEY: str = "dev-secret-key-must-be-changed-in-production-min-32-chars"
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 30
+
+    # ── Public App URL ─────────────────────────────────────────
+    PUBLIC_APP_URL: str = "https://karachilabpharmacy.com"
 
     # ── File Storage ───────────────────────────────────────────
     STORAGE_BACKEND: str = "s3"  # "local" | "s3"
@@ -64,6 +67,10 @@ class Settings(BaseSettings):
     RATE_LIMIT_PER_MINUTE: int = 100
 
     # ── WhatsApp Cloud API ─────────────────────────────────────
+    WHATSAPP_API_VERSION: str = "v21.0"
+    WHATSAPP_PHONE_NUMBER_ID: str = ""
+    WHATSAPP_WABA_ID: str = ""
+    WHATSAPP_ACCESS_TOKEN: str = ""
     WHATSAPP_VERIFY_TOKEN: str = ""
     WHATSAPP_APP_SECRET: str = ""
 

@@ -1,0 +1,67 @@
+# WhatsApp Cloud API Message Templates Configuration
+# Maps internal business keys to Meta registered template names,
+# supported language codes (with fallback to 'en'), and ordered parameters.
+
+appointment_confirmed:
+  template_name: appointment_confirmed
+  languages:
+    en: en
+    ur: ur
+  body_params:
+    - patient_name
+    - doctor_name
+    - slot_datetime
+    - clinic_branch
+
+appointment_reminder_1h:
+  template_name: appointment_reminder_1h
+  languages:
+    en: en
+    ur: ur
+  body_params:
+    - patient_name
+    - doctor_name
+    - slot_datetime
+    - clinic_branch
+
+appointment_cancelled:
+  template_name: appointment_cancelled
+  languages:
+    en: en
+    ur: ur
+  body_params:
+    - patient_name
+    - doctor_name
+    - slot_datetime
+    - reason
+
+order_status:
+  template_name: order_status_update
+  languages:
+    en: en
+    ur: ur
+  body_params:
+    - customer_name
+    - order_number
+    - status
+    - total_amount
+
+order_confirmed:
+  template_name: order_confirmed
+  languages:
+    en: en
+    ur: ur
+  body_params:
+    - customer_name
+    - order_number
+    - total_amount
+
+lab_report_ready:
+  template_name: lab_report_ready
+  languages:
+    en: en
+    ur: ur
+  body_params:
+    - patient_name
+    - test_name
+    - report_url
