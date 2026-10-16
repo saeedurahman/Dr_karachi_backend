@@ -30,6 +30,7 @@ from app.services.whatsapp.message_log_service import (
     mark_failed,
     mark_sent,
 )
+from app.services.whatsapp.auto_reply_service import AutoReplyService
 from app.services.whatsapp.reminder_service import (
     AppointmentReminderService,
     process_appointment_reminders,
@@ -57,7 +58,9 @@ from app.services.whatsapp.transactional_handlers import (
 
 __all__ = [
     "AppointmentReminderService",
+    "AutoReplyService",
     "ConsentBlockedError",
+
     "ConsentService",
     "DuplicateMessageError",
     "MessageLogService",

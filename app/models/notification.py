@@ -30,6 +30,8 @@ class NotificationEventType(str, enum.Enum):
     franchise_lead_received = "franchise_lead_received"
     new_review = "new_review"
     blog_published = "blog_published"
+    whatsapp_human_handoff = "whatsapp_human_handoff"
+
 
 
 class NotificationEvent(TimestampMixin, Base):

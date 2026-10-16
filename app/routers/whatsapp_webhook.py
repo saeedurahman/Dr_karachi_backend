@@ -15,10 +15,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.database import get_db
+from app.services.whatsapp.auto_reply_service import AutoReplyService
 from app.services.whatsapp.keyword_handler import handle_inbound_keyword
 from app.services.whatsapp.message_log_service import MessageLogService
 
 logger = logging.getLogger(__name__)
+
 
 router = APIRouter(prefix="/webhooks/whatsapp", tags=["WhatsApp Webhook"])
 
@@ -113,11 +115,50 @@ async def receive_webhook(
                             text_dict = msg.get("text", {})
                             text_body = text_dict.get("body") if isinstance(text_dict, dict) else None
                             if text_body:
-                                await handle_inbound_keyword(
+                                keyword_handled = await handle_inbound_keyword(
                                     db=db,
                                     from_phone=str(from_phone),
                                     text_body=text_body,
                                 )
+                                # STOP/START always wins and stops further processing for that message
+                                if keyword_handled:
+                                    continue
+
+                                # Auto-reply menu or fallback
+                                await AutoReplyService.handle_inbound(
+                                    db=db,
+                                    from_phone=str(from_phone),
+                                    wamid=wamid,
+                                    text_body=text_body,
+                                )
+
+                        elif msg_type == "interactive":
+                            interactive_dict = msg.get("interactive", {})
+                            interactive_type = interactive_dict.get("type")
+                            selection_id = None
+                            if interactive_type == "list_reply":
+                                selection_id = interactive_dict.get("list_reply", {}).get("id")
+                            elif interactive_type == "button_reply":
+                                selection_id = interactive_dict.get("button_reply", {}).get("id")
+
+                            if selection_id:
+                                await AutoReplyService.handle_inbound(
+                                    db=db,
+                                    from_phone=str(from_phone),
+                                    wamid=wamid,
+                                    interactive_id=selection_id,
+                                )
+
+                        elif msg_type == "button":
+                            payload = msg.get("button", {}).get("payload")
+                            if payload:
+                                await AutoReplyService.handle_inbound(
+                                    db=db,
+                                    from_phone=str(from_phone),
+                                    wamid=wamid,
+                                    interactive_id=payload,
+                                )
+
 
         await db.commit()
     except Exception:
