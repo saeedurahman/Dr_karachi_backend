@@ -37,6 +37,7 @@ class CreateStaffUserRequest(BaseModel):
     password: str = Field(..., min_length=8, max_length=128)
     email: EmailStr | None = None
     role: UserRole = UserRole.pharmacy_staff
+    branch_id: uuid.UUID | None = None
 
     @field_validator("password")
     @classmethod
@@ -67,6 +68,7 @@ class UpdateStaffUserRequest(BaseModel):
     full_name: str | None = Field(None, min_length=2, max_length=255)
     email: EmailStr | None = None
     role: UserRole | None = None
+    branch_id: uuid.UUID | None = None
     is_active: bool | None = None
 
     @field_validator("role")
@@ -100,6 +102,7 @@ class UserResponse(BaseModel):
     phone: str
     email: str | None
     role: UserRole
+    branch_id: uuid.UUID | None = None
     is_active: bool
     created_at: datetime
 

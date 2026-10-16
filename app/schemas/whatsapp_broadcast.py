@@ -62,3 +62,17 @@ class BroadcastPreviewResponse(BaseModel):
     eligible_count: int
     skipped_count: int
     skip_reasons: dict[str, int] = Field(default_factory=dict)
+
+
+class MarketingTemplateResponse(BaseModel):
+    key: str = Field(..., description="Internal business template key")
+    template_name: str = Field(..., description="Registered WhatsApp template name")
+    category: str = Field(default="marketing", description="Template category (marketing)")
+    languages: list[str] = Field(..., description="List of supported language codes")
+    supported_languages: list[str] = Field(..., description="List of supported language codes")
+    parameter_names: list[str] = Field(..., description="Ordered list of template parameter names")
+    ordered_parameter_names: list[str] = Field(..., description="Ordered list of template parameter names")
+    ordered_parameters: list[str] = Field(..., description="Ordered list of template parameter names")
+    body_params: list[str] = Field(..., description="Ordered list of template body parameters")
+    opt_out_hint: str | None = Field(default=None, description="Opt-out hint message if applicable")
+

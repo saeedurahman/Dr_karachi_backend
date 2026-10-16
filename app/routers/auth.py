@@ -129,8 +129,16 @@ async def update_me(body: UpdateProfileRequest, current_user: CurrentUser, db: D
     dependencies=[require_roles(UserRole.super_admin)],
 )
 async def create_staff_user(body: CreateStaffUserRequest, db: DBSession):
+    from sqlalchemy import select
+    from fastapi import HTTPException
+    from app.models.branch import Branch
     from app.models.user import User
     from app.utils.security import hash_password
+
+    if body.branch_id is not None:
+        branch_result = await db.execute(select(Branch).where(Branch.id == body.branch_id))
+        if not branch_result.scalar_one_or_none():
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Branch not found")
 
     user = User(
         full_name=body.full_name,
@@ -138,6 +146,7 @@ async def create_staff_user(body: CreateStaffUserRequest, db: DBSession):
         email=body.email,
         hashed_password=hash_password(body.password),
         role=body.role,
+        branch_id=body.branch_id,
     )
     db.add(user)
     await db.flush()
@@ -178,6 +187,7 @@ async def update_staff_user(
     db: DBSession,
 ):
     from sqlalchemy import select
+    from app.models.branch import Branch
     from app.models.user import User
     from fastapi import HTTPException
 
@@ -197,6 +207,12 @@ async def update_staff_user(
         user.role = body.role
     if body.is_active is not None:
         user.is_active = body.is_active
+    if "branch_id" in body.model_fields_set:
+        if body.branch_id is not None:
+            branch_result = await db.execute(select(Branch).where(Branch.id == body.branch_id))
+            if not branch_result.scalar_one_or_none():
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Branch not found")
+        user.branch_id = body.branch_id
 
     await db.flush()
     return UserResponse.model_validate(user)

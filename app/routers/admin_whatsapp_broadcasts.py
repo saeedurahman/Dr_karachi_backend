@@ -15,14 +15,56 @@ from app.schemas.whatsapp_broadcast import (
     BroadcastPreviewResponse,
     BroadcastResponse,
     BroadcastStats,
+    MarketingTemplateResponse,
 )
 from app.services.whatsapp.broadcast_service import BroadcastService
+from app.services.whatsapp.templates import template_registry
 
 router = APIRouter(
     prefix="/admin/whatsapp/broadcasts",
     tags=["Admin WhatsApp Broadcasts"],
     dependencies=[require_roles(UserRole.super_admin, UserRole.branch_manager)],
 )
+
+templates_router = APIRouter(
+    prefix="/admin/whatsapp/templates",
+    tags=["Admin WhatsApp Templates"],
+    dependencies=[require_roles(UserRole.super_admin, UserRole.branch_manager)],
+)
+
+
+@templates_router.get(
+    "",
+    response_model=list[MarketingTemplateResponse],
+    summary="[Admin] List marketing WhatsApp templates",
+)
+async def list_marketing_templates() -> list[MarketingTemplateResponse]:
+    """Return only templates with category 'marketing' from the TemplateRegistry.
+
+    Includes key, supported languages, ordered parameter names, and opt_out_hint.
+    Never exposes secrets or Meta IDs.
+    """
+    templates: list[MarketingTemplateResponse] = []
+    for key, tpl in template_registry._templates.items():
+        if tpl.category == "marketing":
+            langs = list(tpl.languages.keys())
+            params = list(tpl.body_params)
+            templates.append(
+                MarketingTemplateResponse(
+                    key=tpl.key,
+                    template_name=tpl.template_name,
+                    category=tpl.category,
+                    languages=langs,
+                    supported_languages=langs,
+                    parameter_names=params,
+                    ordered_parameter_names=params,
+                    ordered_parameters=params,
+                    body_params=params,
+                    opt_out_hint=tpl.opt_out_hint,
+                )
+            )
+    return templates
+
 
 
 def _assert_branch_access(current_user: Any, broadcast: WhatsAppBroadcast) -> None:

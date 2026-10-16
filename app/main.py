@@ -124,6 +124,7 @@ def create_app() -> FastAPI:
     # Phase 5 � WhatsApp webhook (public, no rate limit)
     app.include_router(whatsapp_webhook.router, prefix=API_V1)
     app.include_router(admin_whatsapp_broadcasts.router, prefix=API_V1)
+    app.include_router(admin_whatsapp_broadcasts.templates_router, prefix=API_V1)
 
     # ── Health check ───────────────────────────────────────────────────────────
     @app.get("/health", tags=["Health"], include_in_schema=False)
