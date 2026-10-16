@@ -30,6 +30,10 @@ from app.services.whatsapp.message_log_service import (
     mark_failed,
     mark_sent,
 )
+from app.services.whatsapp.reminder_service import (
+    AppointmentReminderService,
+    process_appointment_reminders,
+)
 from app.services.whatsapp.sender import SafeSender, safe_sender
 from app.services.whatsapp.templates import (
     TemplateConfig,
@@ -52,6 +56,7 @@ from app.services.whatsapp.transactional_handlers import (
 )
 
 __all__ = [
+    "AppointmentReminderService",
     "ConsentBlockedError",
     "ConsentService",
     "DuplicateMessageError",
@@ -78,7 +83,9 @@ __all__ = [
     "map_meta_error",
     "mark_failed",
     "mark_sent",
+    "process_appointment_reminders",
     "safe_sender",
+
     "set_marketing_opt_in",
     "set_transactional",
     "template_registry",

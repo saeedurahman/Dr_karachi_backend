@@ -74,6 +74,12 @@ class Settings(BaseSettings):
     WHATSAPP_VERIFY_TOKEN: str = ""
     WHATSAPP_APP_SECRET: str = ""
 
+    # ── WhatsApp Appointment Reminder Worker ───────────────────
+    WHATSAPP_REMINDER_POLL_SECONDS: int = 60
+    WHATSAPP_REMINDER_WINDOW_START_MINUTES: int = 55
+    WHATSAPP_REMINDER_WINDOW_END_MINUTES: int = 65
+    WHATSAPP_REMINDER_BATCH_SIZE: int = 50
+
     # ── Secure Lab Report Links ────────────────────────────────
     REPORT_LINK_SECRET: str = "default-insecure-report-link-secret-change-in-prod"
     REPORT_LINK_TTL_HOURS: int = 48
@@ -81,3 +87,4 @@ class Settings(BaseSettings):
 
 
 settings = Settings()  # type: ignore[call-arg]
+
