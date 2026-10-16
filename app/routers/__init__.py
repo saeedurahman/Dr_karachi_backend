@@ -11,9 +11,12 @@ from app.routers import (
     lab_tests,
     products,
     reviews,
+    admin_whatsapp_broadcasts,
+    whatsapp_webhook,
 )
 
 __all__ = [
+    "admin_whatsapp_broadcasts",
     "appointments",
     "auth",
     "blog",
@@ -26,6 +29,7 @@ __all__ = [
     "lab_tests",
     "products",
     "reviews",
+    "whatsapp_webhook",
 ]
 
 

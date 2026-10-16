@@ -29,6 +29,12 @@ from app.models.product import BranchStock, Product
 from app.models.refresh_token import RefreshToken
 from app.models.review import Review, ReviewTargetType
 from app.models.user import User, UserRole
+from app.models.whatsapp_broadcast import (
+    BroadcastRecipientStatus,
+    BroadcastStatus,
+    WhatsAppBroadcast,
+    WhatsAppBroadcastRecipient,
+)
 from app.models.whatsapp_consent import WhatsAppConsent
 from app.models.whatsapp_conversation import ConversationMode, WhatsAppConversation
 from app.models.whatsapp_message import (
@@ -81,5 +87,9 @@ __all__ = [
     "WhatsAppMessageDirection",
     "WhatsAppMessageStatus",
     "WhatsAppMessageType",
+    "BroadcastStatus",
+    "BroadcastRecipientStatus",
+    "WhatsAppBroadcast",
+    "WhatsAppBroadcastRecipient",
 ]
 

@@ -27,6 +27,7 @@ from app.routers import (
     lab_tests,
     products,
     reviews,
+    admin_whatsapp_broadcasts,
     whatsapp_webhook,
 )
 from app.utils.limiter import limiter
@@ -122,6 +123,7 @@ def create_app() -> FastAPI:
 
     # Phase 5 � WhatsApp webhook (public, no rate limit)
     app.include_router(whatsapp_webhook.router, prefix=API_V1)
+    app.include_router(admin_whatsapp_broadcasts.router, prefix=API_V1)
 
     # ── Health check ───────────────────────────────────────────────────────────
     @app.get("/health", tags=["Health"], include_in_schema=False)

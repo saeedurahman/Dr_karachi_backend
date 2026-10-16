@@ -91,6 +91,7 @@ async def create_user_helper(
     role: UserRole = UserRole.patient,
     phone: str | None = None,
     email: str | None = None,
+    branch_id: uuid.UUID | None = None,
 ) -> tuple[User, dict[str, str]]:
     """Helper to create a user and return (user, auth_headers)."""
     user_id = uuid.uuid4()
@@ -105,6 +106,7 @@ async def create_user_helper(
         email=email_val,
         hashed_password=hash_password("Password123!"),
         role=role,
+        branch_id=branch_id,
         is_active=True,
     )
     session.add(user)

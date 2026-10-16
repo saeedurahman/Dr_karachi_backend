@@ -80,6 +80,12 @@ class Settings(BaseSettings):
     WHATSAPP_REMINDER_WINDOW_END_MINUTES: int = 65
     WHATSAPP_REMINDER_BATCH_SIZE: int = 50
 
+    # ── WhatsApp Broadcast Engine ──────────────────────────────
+    WHATSAPP_BROADCAST_POLL_SECONDS: int = 30
+    WHATSAPP_BROADCAST_BATCH_SIZE: int = 50
+    WHATSAPP_BROADCAST_DELAY_SECONDS: float = 0.5
+    WHATSAPP_DAILY_MARKETING_LIMIT: int = 250
+
     # ── Secure Lab Report Links ────────────────────────────────
     REPORT_LINK_SECRET: str = "default-insecure-report-link-secret-change-in-prod"
     REPORT_LINK_TTL_HOURS: int = 48

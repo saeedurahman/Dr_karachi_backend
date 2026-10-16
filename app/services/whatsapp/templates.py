@@ -50,6 +50,7 @@ DEFAULT_TEMPLATES_DICT: dict[str, dict[str, Any]] = {
     "promotional_offer": {
         "template_name": "promotional_offer",
         "category": "marketing",
+        "opt_out_hint": "Reply STOP to unsubscribe",
         "languages": {"en": "en", "ur": "ur"},
         "body_params": ["customer_name", "offer_title", "discount_details", "expiry_date"],
     },
@@ -63,6 +64,7 @@ class TemplateConfig:
     key: str
     template_name: str
     category: str = "transactional"  # "transactional" | "marketing"
+    opt_out_hint: str | None = None
     languages: dict[str, str] = field(default_factory=lambda: {"en": "en"})
     body_params: list[str] = field(default_factory=list)
     header_params: list[str] = field(default_factory=list)
@@ -118,6 +120,7 @@ class TemplateRegistry:
                 continue
             template_name = entry.get("template_name", key)
             category = entry.get("category", "transactional")
+            opt_out_hint = entry.get("opt_out_hint") or entry.get("note")
             languages = entry.get("languages", {"en": "en"})
             body_params = entry.get("body_params", [])
             header_params = entry.get("header_params", [])
@@ -127,6 +130,7 @@ class TemplateRegistry:
                 key=key,
                 template_name=template_name,
                 category=category,
+                opt_out_hint=opt_out_hint,
                 languages=languages,
                 body_params=body_params,
                 header_params=header_params,

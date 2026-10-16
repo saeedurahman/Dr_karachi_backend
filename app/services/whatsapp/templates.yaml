@@ -75,6 +75,8 @@ lab_report_ready:
 promotional_offer:
   template_name: promotional_offer
   category: marketing
+  opt_out_hint: "Reply STOP to unsubscribe"
+  note: "Reply STOP to unsubscribe"
   languages:
     en: en
     ur: ur
