@@ -227,3 +227,72 @@ async def test_lab_tests_include_inactive_toggle(
     assert resp.status_code == 200
     codes = [item["code"] for item in resp.json()["items"]]
     assert inactive_test.code in codes
+
+
+@pytest.mark.asyncio
+async def test_lab_tests_category_filter_and_endpoint(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    branch = Branch(
+        id=uuid.uuid4(),
+        name="Category Test Branch",
+        city="Quetta",
+        address="Test Address",
+        phone="0319-1353930",
+        working_hours={},
+        services=["lab"],
+        is_active=True,
+    )
+    db_session.add(branch)
+
+    t1 = LabTest(
+        id=uuid.uuid4(),
+        name="Radio Test Scan",
+        code=f"RAD-{uuid.uuid4().hex[:6]}",
+        category="Radiology",
+        specimen=None,
+        reporting_time="After 1 hour(s)",
+        turnaround_hours=1,
+        price=Decimal("1500.00"),
+        branch_id=branch.id,
+        is_active=True,
+    )
+    t2 = LabTest(
+        id=uuid.uuid4(),
+        name="Blood Chemistry Test",
+        code=f"CHEM-{uuid.uuid4().hex[:6]}",
+        category="Chemical Pathology",
+        specimen="Serum",
+        reporting_time="After 1 day(s)",
+        turnaround_hours=24,
+        price=Decimal("1200.00"),
+        branch_id=branch.id,
+        is_active=True,
+    )
+    db_session.add_all([t1, t2])
+    await db_session.commit()
+
+    # Test GET /api/v1/lab-tests returns categories
+    resp = await async_client.get("/api/v1/lab-tests")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "categories" in data
+    assert "Radiology" in data["categories"]
+    assert "Chemical Pathology" in data["categories"]
+
+    # Test GET /api/v1/lab-tests?category=Radiology
+    resp_rad = await async_client.get("/api/v1/lab-tests", params={"category": "Radiology"})
+    assert resp_rad.status_code == 200
+    data_rad = resp_rad.json()
+    codes = [item["code"] for item in data_rad["items"]]
+    assert t1.code in codes
+    assert t2.code not in codes
+
+    # Test GET /api/v1/lab-tests/categories endpoint
+    resp_cats = await async_client.get("/api/v1/lab-tests/categories")
+    assert resp_cats.status_code == 200
+    cats = resp_cats.json()
+    assert isinstance(cats, list)
+    assert "Radiology" in cats
+    assert "Chemical Pathology" in cats
+

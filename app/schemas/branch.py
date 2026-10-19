@@ -12,7 +12,7 @@ class BranchCreate(BaseModel):
     name: str = Field(..., min_length=2, max_length=255)
     city: str = Field(..., max_length=100)
     address: str
-    phone: str = Field(..., pattern=r"^\+?[0-9]{10,15}$")
+    phone: str = Field(..., min_length=5, max_length=100)
     email: str | None = None
     google_maps_url: str | None = None
     working_hours: dict[str, Any] = Field(
@@ -26,7 +26,7 @@ class BranchUpdate(BaseModel):
     name: str | None = Field(None, min_length=2, max_length=255)
     city: str | None = Field(None, max_length=100)
     address: str | None = None
-    phone: str | None = None
+    phone: str | None = Field(None, min_length=5, max_length=100)
     email: str | None = None
     google_maps_url: str | None = None
     working_hours: dict[str, Any] | None = None

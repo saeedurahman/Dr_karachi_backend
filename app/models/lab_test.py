@@ -36,6 +36,9 @@ class LabTest(SoftDeleteMixin, Base):
     )
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     turnaround_hours: Mapped[int | None] = mapped_column(nullable=True)
+    category: Mapped[str | None] = mapped_column(String(100), nullable=True, index=True)
+    specimen: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    reporting_time: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
     # â”€â”€ Relationships â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     branch: Mapped[Branch | None] = relationship(back_populates="lab_tests")  # noqa: F821

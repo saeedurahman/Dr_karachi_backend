@@ -57,6 +57,7 @@ async def list_lab_tests(
     db: DBSession,
     branch_id: uuid.UUID | None = Query(None, description="Filter by branch ID or universal tests"),
     home_sampling_only: bool = Query(False, description="Only tests offering home sampling"),
+    category: str | None = Query(None, description="Filter by category"),
     search: str | None = Query(None, min_length=1, description="Search by name or code"),
     include_inactive: bool = Query(False, description="Include inactive tests (admin use)"),
     page: int = Query(1, ge=1),
@@ -72,6 +73,9 @@ async def list_lab_tests(
 
     if home_sampling_only:
         query = query.where(LabTest.home_sampling_available.is_(True))
+
+    if category:
+        query = query.where(LabTest.category.ilike(category.strip()))
 
     if search:
         term = f"%{search.strip()}%"
@@ -95,13 +99,47 @@ async def list_lab_tests(
 
     pages = math.ceil(total / limit) if limit > 0 else 1
 
+    cats_query = (
+        select(LabTest.category)
+        .where(
+            LabTest.deleted_at.is_(None),
+            LabTest.is_active.is_(True),
+            LabTest.category.is_not(None),
+        )
+        .distinct()
+        .order_by(LabTest.category.asc())
+    )
+    cats_res = await db.execute(cats_query)
+    categories = [c for (c,) in cats_res.all() if c]
+
     return LabTestListResponse(
         items=[LabTestResponse.model_validate(t) for t in items],
         total=total,
         page=page,
         limit=limit,
         pages=pages,
+        categories=categories,
     )
+
+
+@router.get(
+    "/categories",
+    response_model=list[str],
+    summary="List distinct active lab test categories",
+)
+async def list_lab_test_categories(db: DBSession):
+    cats_query = (
+        select(LabTest.category)
+        .where(
+            LabTest.deleted_at.is_(None),
+            LabTest.is_active.is_(True),
+            LabTest.category.is_not(None),
+        )
+        .distinct()
+        .order_by(LabTest.category.asc())
+    )
+    cats_res = await db.execute(cats_query)
+    return [c for (c,) in cats_res.all() if c]
 
 
 def _build_booking_admin_response(

@@ -31,6 +31,9 @@ class LabTestBase(BaseModel):
     )
     turnaround_hours: int | None = Field(None, ge=1)
     is_active: bool = True
+    category: str | None = None
+    specimen: str | None = None
+    reporting_time: str | None = None
 
 
 class LabTestCreate(LabTestBase):
@@ -47,6 +50,9 @@ class LabTestUpdate(BaseModel):
     home_sampling_fee: Decimal | None = Field(None, ge=0, decimal_places=2)
     turnaround_hours: int | None = Field(None, ge=1)
     is_active: bool | None = None
+    category: str | None = None
+    specimen: str | None = None
+    reporting_time: str | None = None
 
 
 class LabTestResponse(BaseModel):
@@ -60,6 +66,9 @@ class LabTestResponse(BaseModel):
     home_sampling_fee: Decimal
     turnaround_hours: int | None
     is_active: bool
+    category: str | None = None
+    specimen: str | None = None
+    reporting_time: str | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -73,6 +82,7 @@ class LabTestListResponse(BaseModel):
     page: int
     limit: int
     pages: int
+    categories: list[str] = Field(default_factory=list)
 
 
 class LabBookingCreate(BaseModel):
