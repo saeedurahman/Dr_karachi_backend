@@ -13,7 +13,7 @@ from __future__ import annotations
 import uuid
 from decimal import Decimal
 
-from fastapi import HTTPException
+from fastapi import BackgroundTasks, HTTPException
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -42,7 +42,12 @@ class CheckoutService:
         self.db = db
 
     # â”€â”€ Checkout â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-    async def checkout(self, user: User, body: CheckoutRequest) -> OrderResponse:
+    async def checkout(
+        self,
+        user: User,
+        body: CheckoutRequest,
+        background_tasks: BackgroundTasks | None = None,
+    ) -> OrderResponse:
         """
         Convert the patient's cart into a confirmed Order.
 
@@ -170,13 +175,17 @@ class CheckoutService:
 
         # Trigger WhatsApp transactional notification (runs after commit)
         from app.services.whatsapp.transactional_handlers import trigger_order_placed
-        trigger_order_placed(order.id)
+        trigger_order_placed(order.id, background_tasks=background_tasks)
 
         return self._build_response(order, order_item_models, patient=user)
 
     # â”€â”€ Update order status â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     async def update_status(
-        self, order_id: uuid.UUID, body: OrderStatusUpdate, actor: User
+        self,
+        order_id: uuid.UUID,
+        body: OrderStatusUpdate,
+        actor: User,
+        background_tasks: BackgroundTasks | None = None,
     ) -> OrderResponse:
         result = await self.db.execute(select(Order).where(Order.id == order_id))
         order = result.scalar_one_or_none()
@@ -219,7 +228,7 @@ class CheckoutService:
 
         # Trigger WhatsApp transactional notification (runs after commit)
         from app.services.whatsapp.transactional_handlers import trigger_order_status_changed
-        trigger_order_status_changed(order.id, new_status=body.status.value)
+        trigger_order_status_changed(order.id, new_status=body.status.value, background_tasks=background_tasks)
 
         return self._build_response(order, items, patient=patient)
 

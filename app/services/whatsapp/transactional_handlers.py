@@ -46,6 +46,16 @@ from app.utils.report_security import generate_report_access_url
 
 PKT = ZoneInfo("Asia/Karachi")
 
+# Strong references set to prevent garbage-collection of un-awaited fallback tasks
+_background_tasks: set[asyncio.Task] = set()
+
+
+def _schedule_background_task(coro) -> asyncio.Task:
+    task = asyncio.create_task(coro)
+    _background_tasks.add(task)
+    task.add_done_callback(_background_tasks.discard)
+    return task
+
 
 def format_pkt_datetime(dt: datetime) -> str:
     """Format UTC datetime into Pakistan Standard Time string.
@@ -102,7 +112,7 @@ async def dispatch_transactional_message(
     try:
         can_send = await ConsentService.can_send(db, normalized_phone, category="transactional")
         if not can_send:
-            logger.info(
+            logger.warning(
                 "Transactional WhatsApp blocked by user consent | phone={} dedupe_key={}",
                 _mask_phone(normalized_phone),
                 dedupe_key,
@@ -130,8 +140,8 @@ async def dispatch_transactional_message(
         )
         await db.commit()
     except DuplicateMessageError:
-        logger.info(
-            "Duplicate transactional WhatsApp message ignored | dedupe_key={}",
+        logger.warning(
+            "Duplicate transactional WhatsApp message skipped | dedupe_key={}",
             dedupe_key,
         )
         return None
@@ -162,7 +172,7 @@ async def dispatch_transactional_message(
         )
         return msg
     except ConsentBlockedError as exc:
-        logger.info(
+        logger.warning(
             "SafeSender blocked transactional message by consent | id={} err={}",
             msg.id,
             exc,
@@ -374,7 +384,7 @@ async def handle_lab_report_ready(
         return None
 
     if not report.is_visible:
-        logger.info("Lab report is not marked visible, skipping notification | id={}", report_id)
+        logger.warning("Lab report is not marked visible, skipping notification | id={}", report_id)
         return None
 
     patient = await db.get(User, report.patient_id)
@@ -429,13 +439,15 @@ async def _run_isolated_handler(
 ) -> None:
     """Execute handler within a fresh isolated session."""
     factory = session_factory or AsyncSessionLocal
+    handler_name = getattr(handler_func, "__name__", str(handler_func))
     try:
+        logger.info("Executing background transactional dispatch | handler={}", handler_name)
         async with factory() as session:
             await handler_func(session, *args, sender=sender, **kwargs)
     except Exception as exc:
         logger.exception(
             "Unhandled exception in background transactional dispatch | handler={} err={}",
-            getattr(handler_func, "__name__", str(handler_func)),
+            handler_name,
             exc,
         )
 
@@ -456,7 +468,7 @@ def trigger_appointment_confirmed(
             sender=sender,
         )
     else:
-        asyncio.create_task(
+        _schedule_background_task(
             _run_isolated_handler(
                 handle_appointment_confirmed,
                 appointment_id,
@@ -482,7 +494,7 @@ def trigger_appointment_cancelled(
             sender=sender,
         )
     else:
-        asyncio.create_task(
+        _schedule_background_task(
             _run_isolated_handler(
                 handle_appointment_cancelled,
                 appointment_id,
@@ -508,7 +520,7 @@ def trigger_order_placed(
             sender=sender,
         )
     else:
-        asyncio.create_task(
+        _schedule_background_task(
             _run_isolated_handler(
                 handle_order_placed,
                 order_id,
@@ -536,7 +548,7 @@ def trigger_order_status_changed(
             sender=sender,
         )
     else:
-        asyncio.create_task(
+        _schedule_background_task(
             _run_isolated_handler(
                 handle_order_status_changed,
                 order_id,
@@ -563,7 +575,7 @@ def trigger_lab_report_ready(
             sender=sender,
         )
     else:
-        asyncio.create_task(
+        _schedule_background_task(
             _run_isolated_handler(
                 handle_lab_report_ready,
                 report_id,

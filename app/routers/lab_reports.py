@@ -18,7 +18,7 @@ from __future__ import annotations
 import math
 import uuid
 
-from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, Query, UploadFile, status
 from fastapi.responses import RedirectResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
@@ -75,6 +75,7 @@ async def upload_lab_report(
     notes: str | None = Form(None),
     current_user: CurrentUser = None,
     db: DBSession = None,
+    background_tasks: BackgroundTasks = BackgroundTasks(),
 ):
     service = ReportService(db)
     resp = await service.upload_report(
@@ -88,7 +89,7 @@ async def upload_lab_report(
     await db.commit()
 
     from app.services.whatsapp.transactional_handlers import trigger_lab_report_ready
-    trigger_lab_report_ready(resp.id)
+    trigger_lab_report_ready(resp.id, background_tasks=background_tasks)
 
     return resp
 
@@ -258,6 +259,7 @@ async def update_lab_report(
     report_id: uuid.UUID,
     body: LabReportUpdate,
     db: DBSession,
+    background_tasks: BackgroundTasks = BackgroundTasks(),
 ):
     result = await db.execute(select(LabReport).where(LabReport.id == report_id))
     report = result.scalar_one_or_none()
@@ -274,7 +276,7 @@ async def update_lab_report(
 
     if body.is_visible is True:
         from app.services.whatsapp.transactional_handlers import trigger_lab_report_ready
-        trigger_lab_report_ready(report.id)
+        trigger_lab_report_ready(report.id, background_tasks=background_tasks)
 
     return LabReportResponse.model_validate(report)
 

@@ -14,7 +14,7 @@ import math
 import uuid
 from datetime import date as date_cls, datetime, time, timedelta, timezone
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
 
@@ -64,9 +64,10 @@ async def book_appointment(
     body: AppointmentCreate,
     current_user: CurrentUser,
     db: DBSession,
+    background_tasks: BackgroundTasks,
 ):
     service = AppointmentService(db)
-    return await service.book_appointment(patient=current_user, body=body)
+    return await service.book_appointment(patient=current_user, body=body, background_tasks=background_tasks)
 
 
 @router.get(
@@ -203,10 +204,12 @@ async def update_appointment_status(
     body: AppointmentStatusUpdate,
     current_user: CurrentUser,
     db: DBSession,
+    background_tasks: BackgroundTasks,
 ):
     service = AppointmentService(db)
     return await service.update_status(
         appointment_id=appointment_id,
         body=body,
         actor=current_user,
+        background_tasks=background_tasks,
     )

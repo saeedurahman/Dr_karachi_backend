@@ -1,4 +1,4 @@
-﻿"""
+"""
 Cart router -- /api/v1/pharmacy/cart
 Order router -- /api/v1/pharmacy/orders
 
@@ -30,7 +30,7 @@ from __future__ import annotations
 import uuid
 from datetime import date, datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy import func, or_, select
 
 from app.dependencies import CurrentUser, DBSession, require_roles
@@ -148,7 +148,12 @@ async def clear_cart(current_user: CurrentUser, db: DBSession):
     status_code=status.HTTP_201_CREATED,
     summary="Checkout -- convert cart to order (with stock lock)",
 )
-async def checkout(body: CheckoutRequest, current_user: CurrentUser, db: DBSession):
+async def checkout(
+    body: CheckoutRequest,
+    current_user: CurrentUser,
+    db: DBSession,
+    background_tasks: BackgroundTasks,
+):
     """
     Places the order:
     1. Locks branch_stock rows (SELECT FOR UPDATE)
@@ -160,7 +165,7 @@ async def checkout(body: CheckoutRequest, current_user: CurrentUser, db: DBSessi
     7. Emits order_placed event
     """
     svc = CheckoutService(db)
-    return await svc.checkout(current_user, body)
+    return await svc.checkout(current_user, body, background_tasks=background_tasks)
 
 
 @order_router.get(
@@ -278,6 +283,7 @@ async def update_order_status(
     body: OrderStatusUpdate,
     current_user: CurrentUser,
     db: DBSession,
+    background_tasks: BackgroundTasks,
 ):
     """
     Updates order status following the allowed transition table:
@@ -288,4 +294,4 @@ async def update_order_status(
     Invalid transitions return 400 with allowed next states.
     """
     svc = CheckoutService(db)
-    return await svc.update_status(order_id, body, current_user)
+    return await svc.update_status(order_id, body, current_user, background_tasks=background_tasks)

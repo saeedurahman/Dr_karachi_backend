@@ -13,7 +13,7 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, date, datetime, time, timedelta
 
-from fastapi import HTTPException, status
+from fastapi import BackgroundTasks, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -110,6 +110,7 @@ class AppointmentService:
         self,
         patient: User,
         body: AppointmentCreate,
+        background_tasks: BackgroundTasks | None = None,
     ) -> AppointmentResponse:
         """
         Book an appointment.
@@ -243,7 +244,7 @@ class AppointmentService:
 
         # Trigger WhatsApp transactional notification (runs after commit)
         from app.services.whatsapp.transactional_handlers import trigger_appointment_confirmed
-        trigger_appointment_confirmed(appointment.id)
+        trigger_appointment_confirmed(appointment.id, background_tasks=background_tasks)
 
         return self._build_response(appointment, doctor, branch)
 
@@ -253,6 +254,7 @@ class AppointmentService:
         appointment_id: uuid.UUID,
         body: AppointmentStatusUpdate,
         actor: User,
+        background_tasks: BackgroundTasks | None = None,
     ) -> AppointmentResponse:
         result = await self.db.execute(
             select(Appointment)
@@ -324,7 +326,6 @@ class AppointmentService:
             )
 
         await self.db.commit()
-        appointment.patient = patient
 
         # Trigger WhatsApp transactional notification (runs after commit)
         from app.services.whatsapp.transactional_handlers import (
@@ -332,9 +333,9 @@ class AppointmentService:
             trigger_appointment_confirmed,
         )
         if body.status == AppointmentStatus.cancelled:
-            trigger_appointment_cancelled(appointment.id)
+            trigger_appointment_cancelled(appointment.id, background_tasks=background_tasks)
         elif body.status == AppointmentStatus.confirmed:
-            trigger_appointment_confirmed(appointment.id)
+            trigger_appointment_confirmed(appointment.id, background_tasks=background_tasks)
 
         return self._build_response(appointment, doctor, branch)
 
