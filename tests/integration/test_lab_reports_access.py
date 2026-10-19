@@ -14,6 +14,7 @@ from __future__ import annotations
 import uuid
 
 import pytest
+from app.config import settings
 from app.models.branch import Branch
 from app.models.lab_report import LabReport, ReportFileType
 from app.models.lab_test import LabTest
@@ -21,6 +22,13 @@ from app.models.user import UserRole
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 from tests.conftest import create_user_helper
+
+
+@pytest.fixture(autouse=True)
+def _mock_storage_env(monkeypatch):
+    monkeypatch.setattr(settings, "STORAGE_BACKEND", "local")
+    import app.utils.storage as st_mod
+    monkeypatch.setattr(st_mod, "_storage_instance", None)
 
 
 async def _setup_report(db_session: AsyncSession):

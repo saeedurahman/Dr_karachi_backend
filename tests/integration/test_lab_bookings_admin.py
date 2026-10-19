@@ -58,7 +58,7 @@ async def _setup_booking(db_session: AsyncSession):
         total_price=Decimal("2000.00"),
     )
     db_session.add(booking)
-    await db_session.flush()
+    await db_session.commit()
 
     return booking, branch, patient, patient_headers
 

@@ -70,10 +70,15 @@ async def async_client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, 
     """FastAPI async HTTP test client with get_db overridden."""
     app = create_app()
 
+    from starlette.exceptions import HTTPException as StarletteHTTPException
+    from fastapi import HTTPException
+
     async def _override_get_db():
         try:
             yield db_session
             await db_session.commit()
+        except (HTTPException, StarletteHTTPException):
+            raise
         except Exception:
             await db_session.rollback()
             raise
