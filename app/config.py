@@ -86,6 +86,10 @@ class Settings(BaseSettings):
     WHATSAPP_BROADCAST_DELAY_SECONDS: float = 0.5
     WHATSAPP_DAILY_MARKETING_LIMIT: int = 250
 
+    # ── WhatsApp Auto-Reply ────────────────────────────────────
+    WHATSAPP_AUTOREPLY_MAX_PER_WINDOW: int = 8
+    WHATSAPP_AUTOREPLY_WINDOW_MINUTES: int = 10
+
     # ── Secure Lab Report Links ────────────────────────────────
     REPORT_LINK_SECRET: str = "default-insecure-report-link-secret-change-in-prod"
     REPORT_LINK_TTL_HOURS: int = 48

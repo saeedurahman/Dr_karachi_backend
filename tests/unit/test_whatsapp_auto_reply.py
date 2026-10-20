@@ -324,9 +324,19 @@ async def test_handoff_expiry_after_12h(db_session: AsyncSession):
     assert conv.handoff_expires_at is None
 
 
-# ── 6. Rate limit blocks 4th reply in 10 minutes ───────────────────────────────
+# ── 6. Rate limit blocks (N+1)th reply in window ───────────────────────────────
 
-async def test_rate_limit_blocks_fourth_reply_in_10_minutes(db_session: AsyncSession):
+async def test_rate_limit_blocks_fourth_reply_in_10_minutes(
+    db_session: AsyncSession, monkeypatch: pytest.MonkeyPatch
+):
+    # Verify default setting is 8 and window is 10 minutes
+    assert settings.WHATSAPP_AUTOREPLY_MAX_PER_WINDOW == 8
+    assert settings.WHATSAPP_AUTOREPLY_WINDOW_MINUTES == 10
+
+    limit = 3
+    monkeypatch.setattr(settings, "WHATSAPP_AUTOREPLY_MAX_PER_WINDOW", limit)
+    window_minutes = settings.WHATSAPP_AUTOREPLY_WINDOW_MINUTES
+
     phone = f"0300{uuid.uuid4().int % 10000000:07d}"
     now = datetime(2026, 12, 6, 10, 0, tzinfo=UTC)
     recorded_requests: list[httpx.Request] = []
@@ -345,8 +355,8 @@ async def test_rate_limit_blocks_fourth_reply_in_10_minutes(db_session: AsyncSes
             if json.loads(r.read().decode("utf-8")).get("status") != "read"
         ]
 
-    # 1st, 2nd, 3rd replies succeed
-    for i in range(1, 4):
+    # 1st .. N-th replies succeed
+    for i in range(1, limit + 1):
         res = await AutoReplyService.handle_inbound(
             db=db_session,
             from_phone=phone,
@@ -357,32 +367,32 @@ async def test_rate_limit_blocks_fourth_reply_in_10_minutes(db_session: AsyncSes
         )
         assert res is True
 
-    assert len(_message_requests()) == 3
+    assert len(_message_requests()) == limit
 
-    # 4th reply in the same 10-minute window is blocked (stays silent)
-    res_4 = await AutoReplyService.handle_inbound(
+    # (N+1)th reply in the same window is blocked (stays silent)
+    res_np1 = await AutoReplyService.handle_inbound(
         db=db_session,
         from_phone=phone,
-        wamid="wamid.rl.4",
+        wamid=f"wamid.rl.{limit + 1}",
         text_body="hi",
         sender=sender,
         now=now,
     )
-    assert res_4 is False
-    assert len(_message_requests()) == 3  # No extra message request dispatched
+    assert res_np1 is False
+    assert len(_message_requests()) == limit  # No extra message request dispatched
 
-    # After 11 minutes (window reset), 5th reply succeeds
-    now_later = now + timedelta(minutes=11)
-    res_5 = await AutoReplyService.handle_inbound(
+    # After window reset, next reply succeeds
+    now_later = now + timedelta(minutes=window_minutes + 1)
+    res_later = await AutoReplyService.handle_inbound(
         db=db_session,
         from_phone=phone,
-        wamid="wamid.rl.5",
+        wamid=f"wamid.rl.{limit + 2}",
         text_body="hi",
         sender=sender,
         now=now_later,
     )
-    assert res_5 is True
-    assert len(_message_requests()) == 4
+    assert res_later is True
+    assert len(_message_requests()) == limit + 1
 
 
 # ── 7. Urdu-script greeting and fallback ───────────────────────────────────────

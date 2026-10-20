@@ -10,7 +10,7 @@ Handles:
     * Speak with staff (human handoff with 12h expiry & staff notification)
 - Returning from human_agent mode to bot mode via 'menu' or 'bot'
 - Unmatched text fallback in patient's language (Urdu or English)
-- Rate limiting: max 3 automated replies per 10 minutes per phone
+- Rate limiting: max automated replies per window (configurable, default: 8 per 10 minutes per phone)
 - Audit logging via MessageLogService and marking inbound messages read
 """
 from __future__ import annotations
@@ -84,8 +84,8 @@ from app.services.whatsapp.message_log_service import MessageLogService
 from app.services.whatsapp.sender import SafeSender, safe_sender
 from app.utils.phone import normalize_phone_number
 
-RATE_LIMIT_WINDOW_MINUTES = 10
-RATE_LIMIT_MAX_REPLIES = 3
+RATE_LIMIT_WINDOW_MINUTES = settings.WHATSAPP_AUTOREPLY_WINDOW_MINUTES
+RATE_LIMIT_MAX_REPLIES = settings.WHATSAPP_AUTOREPLY_MAX_PER_WINDOW
 HUMAN_HANDOFF_DURATION_HOURS = 12
 
 
@@ -320,20 +320,23 @@ class AutoReplyService:
                     await db.flush()
                     return False
 
-        # 3. Check 10-minute rate limit (max 3 auto-replies per 10m)
+        # 3. Check rate limit window
+        window_minutes = settings.WHATSAPP_AUTOREPLY_WINDOW_MINUTES
+        max_replies = settings.WHATSAPP_AUTOREPLY_MAX_PER_WINDOW
         if (
             conv.auto_reply_count_window_start is None
-            or (now_utc - conv.auto_reply_count_window_start) > timedelta(minutes=RATE_LIMIT_WINDOW_MINUTES)
+            or (now_utc - conv.auto_reply_count_window_start) > timedelta(minutes=window_minutes)
         ):
             conv.auto_reply_count_window_start = now_utc
             conv.auto_reply_count = 0
 
-        if conv.auto_reply_count >= RATE_LIMIT_MAX_REPLIES:
+        if conv.auto_reply_count >= max_replies:
             logger.info(
-                "WhatsApp auto-reply rate limit reached for {} ({}/{} in 10m), staying silent",
+                "WhatsApp auto-reply rate limit reached for {} ({}/{} in {}m), staying silent",
                 _mask_phone(normalized_phone),
                 conv.auto_reply_count,
-                RATE_LIMIT_MAX_REPLIES,
+                max_replies,
+                window_minutes,
             )
             await db.flush()
             return False
