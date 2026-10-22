@@ -152,13 +152,13 @@ class ConsentService:
         stmt = select(WhatsAppConsent).where(WhatsAppConsent.phone == clean_phone)
         consent = (await db.execute(stmt)).scalar_one_or_none()
 
-        # Unknown phone: transactional allowed, marketing blocked
+        # Unknown phone: transactional and authentication allowed, marketing blocked
         if not consent:
-            return cat == "transactional"
+            return cat in ("transactional", "authentication")
 
         if cat == "marketing":
             return bool(consent.marketing_opt_in)
-        if cat == "transactional":
+        if cat in ("transactional", "authentication"):
             return bool(consent.transactional_opt_in)
 
         # Unknown category defaults to False for safety

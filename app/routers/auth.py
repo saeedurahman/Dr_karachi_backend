@@ -1,24 +1,30 @@
 """Auth router — /api/v1/auth"""
-from __future__ import annotations
 
-from fastapi import APIRouter, status
+from fastapi import APIRouter, Request, status
 import uuid
 
 from app.dependencies import CurrentUser, DBSession, require_roles
 from app.models.user import UserRole
 from app.schemas.auth import (
     CreateStaffUserRequest,
+    ForgotPasswordRequest,
+    ForgotPasswordResponse,
     LoginRequest,
     LogoutRequest,
     PatientRegisterRequest,
     RefreshTokenRequest,
+    ResetPasswordConfirmRequest,
     ResetPasswordRequest,
+    ResetPasswordResponse,
     TokenResponse,
     UpdateProfileRequest,
     UpdateStaffUserRequest,
     UserResponse,
+    VerifyOtpRequest,
+    VerifyOtpResponse,
 )
 from app.services.auth_service import AuthService
+from app.utils.limiter import limiter
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
@@ -227,9 +233,13 @@ async def update_staff_user(
 async def reset_staff_password(
     user_id: uuid.UUID,
     body: ResetPasswordRequest,
+    current_user: CurrentUser,
     db: DBSession,
 ):
-    from sqlalchemy import select
+    from datetime import UTC, datetime
+    from loguru import logger
+    from sqlalchemy import select, update
+    from app.models.refresh_token import RefreshToken
     from app.models.user import User
     from app.utils.security import hash_password
     from fastapi import HTTPException
@@ -242,7 +252,112 @@ async def reset_staff_password(
     if user.role == UserRole.patient:
         raise HTTPException(status_code=400, detail="Cannot reset patient passwords through this endpoint")
 
+    now = datetime.now(UTC)
     user.hashed_password = hash_password(body.password)
+
+    # Revoke all sessions / refresh tokens
+    await db.execute(
+        update(RefreshToken)
+        .where(RefreshToken.user_id == user.id, RefreshToken.revoked_at.is_(None))
+        .values(revoked_at=now)
+    )
+
+    logger.info(
+        "ADMIN_PASSWORD_RESET_AUDIT | endpoint=POST actor_id={} target_id={} actor_role={} target_role={} is_self_reset={} timestamp={}",
+        current_user.id,
+        user.id,
+        current_user.role.value,
+        user.role.value,
+        current_user.id == user.id,
+        now.isoformat(),
+    )
+
     await db.flush()
     return UserResponse.model_validate(user)
+
+
+@router.put(
+    "/admin/users/{user_id}/reset-password",
+    response_model=UserResponse,
+    summary="[Admin] Reset password for any account (patient or staff) and revoke sessions",
+    dependencies=[require_roles(UserRole.super_admin, UserRole.branch_manager)],
+)
+async def admin_reset_password(
+    user_id: uuid.UUID,
+    body: ResetPasswordRequest,
+    current_user: CurrentUser,
+    db: DBSession,
+):
+    svc = AuthService(db)
+    user = await svc.admin_reset_password(
+        target_user_id=user_id,
+        new_password=body.password,
+        current_user=current_user,
+    )
+    return UserResponse.model_validate(user)
+
+
+# ── Public Forgot Password Flow (WhatsApp OTP) ─────────────────────────────────
+@router.post(
+    "/forgot-password",
+    response_model=ForgotPasswordResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Request password reset OTP via WhatsApp (Public, rate-limited: 10/min per IP)",
+)
+@limiter.limit("10/minute")
+async def forgot_password(
+    request: Request,
+    body: ForgotPasswordRequest,
+    db: DBSession,
+):
+    svc = AuthService(db)
+    client_ip = request.client.host if request.client else None
+    forwarded = request.headers.get("x-forwarded-for")
+    if forwarded:
+        client_ip = forwarded.split(",")[0].strip()
+
+    await svc.request_password_reset(
+        raw_phone=body.phone,
+        ip=client_ip,
+    )
+    return ForgotPasswordResponse()
+
+
+@router.post(
+    "/forgot-password/verify",
+    response_model=VerifyOtpResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Verify 6-digit WhatsApp OTP and receive single-use reset token (Public, rate-limited: 10/min per IP)",
+)
+@limiter.limit("10/minute")
+async def verify_otp(
+    request: Request,
+    body: VerifyOtpRequest,
+    db: DBSession,
+):
+    svc = AuthService(db)
+    res = await svc.verify_password_reset_otp(
+        raw_phone=body.phone,
+        otp=body.otp,
+    )
+    return VerifyOtpResponse(**res)
+
+
+@router.post(
+    "/reset-password",
+    response_model=ResetPasswordResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Reset password using single-use reset token and revoke existing sessions",
+)
+async def reset_password(
+    body: ResetPasswordConfirmRequest,
+    db: DBSession,
+):
+    svc = AuthService(db)
+    await svc.reset_password_with_token(
+        reset_token=body.reset_token,
+        new_password=body.new_password,
+    )
+    return ResetPasswordResponse()
+
 

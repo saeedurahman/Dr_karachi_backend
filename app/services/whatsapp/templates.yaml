@@ -85,3 +85,14 @@ promotional_offer:
     - offer_title
     - discount_details
     - expiry_date
+
+password_reset_otp:
+  template_name: password_reset_otp
+  category: authentication
+  languages:
+    en: en
+    ur: ur
+  body_params:
+    - code
+  button_params:
+    - code

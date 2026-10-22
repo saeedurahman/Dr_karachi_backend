@@ -25,6 +25,7 @@ from app.models.order import (
     OrderStatus,
     PaymentMethod,
 )
+from app.models.password_reset_otp import PasswordResetOtp
 from app.models.product import BranchStock, Product
 from app.models.refresh_token import RefreshToken
 from app.models.review import Review, ReviewTargetType
@@ -72,6 +73,7 @@ __all__ = [
     "Order",
     "OrderItem",
     "OrderStatus",
+    "PasswordResetOtp",
     "PaymentMethod",
     "Product",
     "RefreshToken",

@@ -70,6 +70,9 @@ class User(SoftDeleteMixin, Base):
     notification_events: Mapped[list[NotificationEvent]] = relationship(  # noqa: F821
         back_populates="user"
     )
+    password_reset_otps: Mapped[list[PasswordResetOtp]] = relationship(  # noqa: F821
+        back_populates="user", cascade="all, delete-orphan", lazy="dynamic"
+    )
 
     def __repr__(self) -> str:
         return f"<User id={self.id} phone={self.phone} role={self.role}>"

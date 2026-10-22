@@ -54,6 +54,13 @@ DEFAULT_TEMPLATES_DICT: dict[str, dict[str, Any]] = {
         "languages": {"en": "en", "ur": "ur"},
         "body_params": ["customer_name", "offer_title", "discount_details", "expiry_date"],
     },
+    "password_reset_otp": {
+        "template_name": "password_reset_otp",
+        "category": "authentication",
+        "languages": {"en": "en", "ur": "ur"},
+        "body_params": ["code"],
+        "button_params": ["code"],
+    },
 }
 
 
@@ -63,11 +70,12 @@ class TemplateConfig:
 
     key: str
     template_name: str
-    category: str = "transactional"  # "transactional" | "marketing"
+    category: str = "transactional"  # "transactional" | "marketing" | "authentication"
     opt_out_hint: str | None = None
     languages: dict[str, str] = field(default_factory=lambda: {"en": "en"})
     body_params: list[str] = field(default_factory=list)
     header_params: list[str] = field(default_factory=list)
+    button_params: list[str] = field(default_factory=list)
     default_language: str = "en"
 
     def get_language_code(self, lang: str | None = None) -> str:
@@ -124,6 +132,7 @@ class TemplateRegistry:
             languages = entry.get("languages", {"en": "en"})
             body_params = entry.get("body_params", [])
             header_params = entry.get("header_params", [])
+            button_params = entry.get("button_params", [])
             default_language = entry.get("default_language", "en")
 
             self._templates[key] = TemplateConfig(
@@ -134,6 +143,7 @@ class TemplateRegistry:
                 languages=languages,
                 body_params=body_params,
                 header_params=header_params,
+                button_params=button_params,
                 default_language=default_language,
             )
 
@@ -206,6 +216,24 @@ class TemplateRegistry:
                     for p in template.body_params
                 ],
             })
+
+        # Button component (if defined)
+        if template.button_params:
+            missing_btn = [p for p in template.button_params if p not in param_dict]
+            if missing_btn:
+                raise WhatsAppTemplateError(
+                    f"Missing required button parameter(s) for WhatsApp template '{key}': "
+                    f"{', '.join(missing_btn)}"
+                )
+            for idx, p in enumerate(template.button_params):
+                components.append({
+                    "type": "button",
+                    "sub_type": "url",
+                    "index": str(idx),
+                    "parameters": [
+                        {"type": "text", "text": str(param_dict[p])}
+                    ],
+                })
 
         return template.template_name, lang_code, components
 

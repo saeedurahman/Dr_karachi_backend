@@ -33,3 +33,6 @@ Thumbs.db
 
 # Node (if any frontend scaffolding appears)
 node_modules/
+
+# One-off admin scripts (temporary)
+scripts/reset_user_password.py
